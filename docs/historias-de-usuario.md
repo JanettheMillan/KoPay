@@ -14,6 +14,8 @@ Los identificadores HU se conservan para no romper las referencias del backlog y
 
 Cada historia indica el **sprint de desarrollo**, las actividades del [backlog](backlog-desarrollo-desde-cero.md) y sus responsables propuestos. Los nombres reflejan a quienes ya aparecen asignados a esas actividades; no crean una asignación nueva en el tablero. Las actividades de definición, maqueta, revisión y prueba pueden ocurrir en otros sprints. La tabla vertical conserva además los datos solicitados en clase.
 
+**Prioridad propuesta:** Alta identifica flujos necesarios para registrar y consultar el dinero; Media identifica funciones de organización o mantenimiento que dependen de esos flujos. El equipo podrá ajustar esta prioridad en el Project antes de tomar cada tarjeta.
+
 **Tipos:** Unitaria comprueba una función o cálculo aislado; Interfaz comprueba
 la interacción visible; Integración comprueba varias partes juntas.
 El tipo indicado describe cómo se comprobaría el criterio completo; el [plan de pruebas reducido](plan-de-pruebas.md) solo conserva tres casos de interfaz y tres de integración. Las demás historias mantienen sus criterios de aceptación para verificarlos al cerrar sus actividades.
@@ -39,6 +41,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1 y 5** |
+| Prioridad propuesta | Alta |
 | Actividades del backlog | S1-07, S1-10, S1-13, S5-01, S5-07. |
 | Responsables propuestos | Enrique, Francisco, Janetthe. |
 | ¿Qué comprueba? | Validación, guardado y actualización de vistas. |
@@ -52,6 +55,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1 y 5** |
+| Prioridad propuesta | Alta |
 | Actividades del backlog | S1-07, S1-11, S1-14, S5-02, S5-08. |
 | Responsables propuestos | Enrique, Francisco, Janetthe. |
 | ¿Qué comprueba? | Formulario de ingreso, guardado y resumen. |
@@ -65,6 +69,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1** |
+| Prioridad propuesta | Media |
 | Depende de | HU-01. |
 | Actividades del backlog | S1-12, S1-13. |
 | Responsables propuestos | Francisco, Janetthe. |
@@ -79,6 +84,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1** |
+| Prioridad propuesta | Alta |
 | Depende de | HU-01 y HU-02. |
 | Actividades del backlog | S1-12, S1-13, S1-14. |
 | Responsables propuestos | Francisco, Janetthe. |
@@ -93,6 +99,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1 y 5** |
+| Prioridad propuesta | Media |
 | Depende de | HU-01. |
 | Actividades del backlog | S1-09, S1-10, S5-01, S5-07. |
 | Responsables propuestos | Enrique, Francisco. |
@@ -107,6 +114,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1 y 5** |
+| Prioridad propuesta | Media |
 | Depende de | HU-01. |
 | Actividades del backlog | S1-09, S1-10, S5-01, S5-07. |
 | Responsables propuestos | Enrique, Francisco. |
@@ -121,6 +129,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1** |
+| Prioridad propuesta | Alta |
 | Depende de | HU-01 y HU-02. |
 | Actividades del backlog | S1-05, S1-09, S1-15. |
 | Responsables propuestos | Maximiliano, Enrique, Janetthe. |
@@ -135,6 +144,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1** |
+| Prioridad propuesta | Alta |
 | Depende de | HU-07. |
 | Actividades del backlog | S1-06. |
 | Responsables propuestos | Maximiliano. |
@@ -149,6 +159,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **1 y 5** |
+| Prioridad propuesta | Alta |
 | Depende de | HU-01, HU-02 y HU-08. |
 | Actividades del backlog | S1-06, S5-02, S5-08. |
 | Responsables propuestos | Maximiliano, Enrique, Francisco. |
@@ -181,6 +192,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **2** |
+| Prioridad propuesta | Media |
 | Depende de | HU-01. |
 | Actividades del backlog | S2-04. |
 | Responsables propuestos | Maximiliano. |
@@ -195,6 +207,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **2** |
+| Prioridad propuesta | Media |
 | Actividades del backlog | S2-04. |
 | Responsables propuestos | Maximiliano. |
 | ¿Qué comprueba? | Alta y persistencia de categorías. |
@@ -208,6 +221,7 @@ Las dependencias indican **qué historia debe estar disponible para completar el
 | Campo | Descripción |
 | :--- | :--- |
 | Sprint de desarrollo | **2** |
+| Prioridad propuesta | Media |
 | Depende de | HU-11. |
 | Actividades del backlog | S2-04. |
 | Responsables propuestos | Maximiliano. |

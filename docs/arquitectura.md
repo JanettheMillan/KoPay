@@ -31,6 +31,18 @@ flowchart LR
 | Ajustes y archivos | `settings_screen.dart`, `csv_backup_service.dart` | Moneda, idioma, exportación XLSX, importación CSV y borrado local. |
 | Formato y vencimientos | `lib/utils/` | Fechas, importes y próximos pagos. |
 
+### Contratos previstos entre pantallas y estado
+
+| Pantalla o formulario | Proveedor | Entrada y respuesta esperada |
+| :--- | :--- | :--- |
+| Nuevo gasto y Movimientos | `MovementProvider` | Recibe monto, descripción, categoría y fecha; valida el registro, lo guarda y notifica la lista actualizada. |
+| Nuevo ingreso | `IncomeProvider` | Recibe nombre, monto y fecha; guarda un ingreso válido y notifica el cambio. |
+| Inicio | `MovementProvider` e `IncomeProvider` | Consulta los registros del periodo seleccionado y presenta los totales calculados para ese mes. |
+| Tarjetas y deudas | Proveedores de tarjetas y deudas | Reciben altas, cambios y pagos válidos; devuelven saldos y próximos vencimientos actualizados. |
+| Ajustes | Proveedor de ajustes | Lee y guarda moneda, idioma y categorías; avisa a las pantallas cuando cambian. |
+
+Las operaciones de escritura pasarán del formulario al proveedor y de este a `DatabaseHelper`. La pantalla recibirá el resultado de validación y el estado actualizado; no accederá directamente a SQLite. Los nombres definitivos de métodos se acordarán al implementar cada módulo.
+
 ## 3. Patrón de diseño propuesto
 
 La app usará `Provider` y `ChangeNotifier` para que las pantallas reaccionen a cambios de estado. Cuando un formulario guarde un registro, el proveedor lo escribirá mediante `DatabaseHelper`, recargará la lista y notificará a sus consumidores. Este flujo aplicará el patrón de **observador** al estado de la interfaz. `DatabaseHelper.instance` ofrecerá una instancia compartida, equivalente a un **singleton** para el acceso a la base local. La API Node.js se construirá como servicio separado.
