@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'screens/home_screen.dart';
 import 'utils/app_colors.dart';
 
 void main() {
@@ -134,7 +135,7 @@ class _MainShellState extends State<MainShell> {
   int _index = 0;
 
   static const _pages = <Widget>[
-    _PlaceholderPage(title: 'Inicio', icon: Icons.home_outlined),
+    HomeScreen(),
     _PlaceholderPage(title: 'Movimientos', icon: Icons.receipt_long_outlined),
     _PlaceholderPage(title: 'Ajustes', icon: Icons.settings_outlined),
   ];
