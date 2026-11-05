@@ -6,7 +6,7 @@ Este directorio reúne el alcance, diseño, planificación, historias, pruebas y
 
 1. [Plan del proyecto](plan-del-proyecto.md): producto completo, alcance, calendario y entregables.
 2. [Backlog de desarrollo](backlog-desarrollo-desde-cero.md) y [cronograma](cronograma-y-trazabilidad.md): 97 actividades de cinco sprints, desde la base Flutter hasta la vista de contador y el APK.
-3. [Arquitectura](arquitectura.md): módulos, flujo de datos, persistencia y patrones propuestos.
+3. [Arquitectura](arquitectura.md): módulos, flujo de datos, persistencia y patrones propuestos. La [navegación de usuario y contador](navegacion-usuario-contador.md) detalla las pantallas y recorridos de cada vista.
 4. [Historias de usuario](historias-de-usuario.md): necesidades, criterios de aceptación, sprint, actividades y responsables propuestos.
 5. [Plan de pruebas](plan-de-pruebas.md): casos unitarios, de interfaz e integración, más registro de ejecución.
 6. [Guía de evidencias](guia-de-evidencias.md): cómo guardar pruebas, capturas, tablero y cambios de Git sin confundir planificación con resultados.
