@@ -840,4 +840,46 @@ La cobertura unitaria es amplia en lógica y modelos, pero las seis pruebas de i
 
 ## 8. Registro y evidencia
 
-Los **85 casos están pendientes de ejecución**. Al ejecutar uno, usar la ficha de la [guía de evidencias](guia-de-evidencias.md) con caso, fecha, responsable, versión, datos, resultado observado y enlace a captura o registro. Los resultados posibles son **Aprobado**, **Fallido** y **Bloqueado**. Las historias e Issues que no tienen caso formal en este plan también requieren evidencia de aceptación cuando se den por terminados.
+Salvo los registrados en las subsecciones siguientes, los casos están **pendientes de ejecución**. Al ejecutar uno, usar la ficha de la [guía de evidencias](guia-de-evidencias.md) con caso, fecha, responsable, versión, datos, resultado observado y enlace a captura o registro. Los resultados posibles son **Aprobado**, **Fallido** y **Bloqueado**. Las historias e Issues que no tienen caso formal en este plan también requieren evidencia de aceptación cuando se den por terminados.
+
+### 8.1 Ejecución S1-16: pruebas unitarias de modelos y formatos
+
+| Campo | Valor |
+| :--- | :--- |
+| Tarjeta | S1-16 · [#31](https://github.com/JanettheMillan/KoPay/issues/31) |
+| Fecha | 2026-11-05 |
+| Responsable | `GleipM` |
+| Versión | `develop` en `0e7b734` |
+| Entorno | Flutter 3.47.6 (stable), macOS, `flutter test` sin dispositivo |
+| Archivo | `test/unit_models_formats_test.dart` |
+| Comando | `flutter test test/unit_models_formats_test.dart -r expanded` |
+| Salida | `00:00 +13 ~4: All tests passed!` (13 pruebas aprobadas y 4 omitidas, que corresponden a los casos fallidos o bloqueados) |
+
+Los casos que encontraron un defecto o que dependen de algo que todavía no existe se dejaron en el archivo de pruebas con `skip` y el motivo, para que la suite siga en verde sin ocultar el resultado. Al corregir el defecto se quita el `skip`.
+
+| Caso | Resultado | Observado |
+| :--- | :--- | :--- |
+| UT-01 · Copia de movimiento | **Aprobado** | `copyWith` cambia monto y descripción, conserva id, categoría, fecha y nota; el original no cambia. |
+| UT-02 · Conversión de movimiento a mapa | **Aprobado** | `toMap` → `fromMap` devuelve un objeto igual, con fecha y hora. El tipo se deduce del signo del monto. |
+| UT-03 · Ingreso representado como movimiento | **Fallido** (D-02) | Monto 500 positivo, descripción Nómina, fecha y categoría Ingreso correctos. No existe el campo de tipo `legacy_income`. |
+| UT-14 · Formato de importe | **Bloqueado** | En MXN, `1234.5` → `$1,234.50` (aprobado). USD y EUR dependen de la moneda configurable (HU-24). |
+| UT-15 · Formato de fecha | **Bloqueado** | El mapa guarda `2026-10-08T00:00:00.000`, cuyos primeros 10 caracteres son `2026-10-08`. `fullDate` → `08/10/2026`, `shortDate` → `8 oct`. El formato por idioma depende de HU-25. |
+| UT-18 · Copia parcial de ingreso | **Aprobado** | El importe cambia a 650 y se conservan nombre y fecha. |
+| UT-19 · Conversión de ingreso a mapa | **Aprobado** | Se conservan nombre, importe, fecha, nota e id. |
+| UT-20 · Emoji de categoría conocida | **Fallido** (D-01) | `Comida` → 🛒 y `Transporte` → 🚌 con texto exacto. `' comida '` y `TRANSPORTE` devuelven 🏷️; `Ingreso` no tiene emoji. |
+| UT-21 · Emoji de categoría desconocida | **Aprobado** | `Mascotas` → 🏷️. |
+| UT-29 · Formato compacto del importe | **Aprobado** | `1234.5` → `$1,235`: símbolo y sin decimales. Redondea hacia arriba. |
+| UT-30 · Fecha relativa de hoy y ayer | **Bloqueado** | No existe una función de fecha relativa. El historial muestra la fecha corta. |
+| UT-31 · Fecha dentro del mes | **Aprobado** | `isSameMonth(2026-10-09, octubre 2026)` → verdadero. |
+| UT-32 · Mismo mes de otro año | **Aprobado** | `isSameMonth(2025-10-09, octubre 2026)` → falso. |
+| UT-33 · Fecha mal formada | **Fallido** (D-03) | `abc` lanza `FormatException`. `2026-13-45` se acepta como `2027-02-14` y `2026-02-30` como `2026-03-02`, sin error. |
+
+**Resumen:** 8 aprobados, 3 fallidos y 3 bloqueados, de 14 casos.
+
+#### Defectos encontrados
+
+| Id | Severidad | Defecto | Dónde | Propuesta |
+| :--- | :--- | :--- | :--- | :--- |
+| D-01 | Baja | `categoryEmoji` no ignora espacios ni mayúsculas y no tiene emoji para `Ingreso`. Una categoría escrita distinto se ve con el icono genérico. | `lib/widgets/category_picker_sheet.dart` | Normalizar con `trim()` y comparar sin mayúsculas; agregar `Ingreso` (💼, que ya usa el historial). |
+| D-02 | Baja | El plan (UT-03) espera un campo de tipo `legacy_income`, pero el modelo distingue los ingresos por la categoría `Ingreso` y el historial por `HistoryEntry.isIncome`. | `docs/plan-de-pruebas.md` o `lib/models/` | Decidir en equipo si se actualiza el caso del plan o se agrega el campo al modelo. |
+| D-03 | Media | `Movement.fromMap` e `Income.fromMap` aceptan fechas imposibles y las convierten en otra fecha sin avisar. Un dato corrupto o importado por CSV (HU-27) quedaría en otro mes. | `lib/models/movement_model.dart`, `lib/models/income_model.dart` | Validar que la fecha leída coincida con el texto, por ejemplo comparando año, mes y día después de `DateTime.parse`, y rechazar si no coincide. |
