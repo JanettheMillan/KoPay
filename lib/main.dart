@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'providers/income_provider.dart';
 import 'providers/movement_provider.dart';
 import 'screens/home_screen.dart';
+import 'screens/movements_screen.dart';
 import 'utils/app_colors.dart';
 import 'widgets/add_income_sheet.dart';
 import 'widgets/add_movement_sheet.dart';
@@ -150,7 +151,7 @@ class _MainShellState extends State<MainShell> {
 
   static const _pages = <Widget>[
     HomeScreen(),
-    _PlaceholderPage(title: 'Movimientos', icon: Icons.receipt_long_outlined),
+    MovementsScreen(),
     _PlaceholderPage(title: 'Ajustes', icon: Icons.settings_outlined),
   ];
 
