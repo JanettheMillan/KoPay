@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/income_provider.dart';
 import 'providers/movement_provider.dart';
 import 'screens/home_screen.dart';
 import 'utils/app_colors.dart';
@@ -16,8 +17,11 @@ void main() {
   SystemChrome.setSystemUIOverlayStyle(AppColors.systemOverlay);
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => MovementProvider()..load(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => MovementProvider()..load()),
+        ChangeNotifierProvider(create: (_) => IncomeProvider()..load()),
+      ],
       child: const KopayApp(),
     ),
   );
