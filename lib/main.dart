@@ -7,6 +7,7 @@ import 'providers/income_provider.dart';
 import 'providers/movement_provider.dart';
 import 'screens/home_screen.dart';
 import 'utils/app_colors.dart';
+import 'widgets/add_movement_sheet.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -151,6 +152,17 @@ class _MainShellState extends State<MainShell> {
     _PlaceholderPage(title: 'Ajustes', icon: Icons.settings_outlined),
   ];
 
+  Future<void> _addMovement() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final saved = await showAddMovementSheet(context);
+    if (saved == null) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(saved.isExpense ? 'Gasto guardado' : 'Entrada guardada'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -158,6 +170,16 @@ class _MainShellState extends State<MainShell> {
       child: Scaffold(
         backgroundColor: AppColors.bg,
         body: IndexedStack(index: _index, children: _pages),
+        floatingActionButton: _index == 2
+            ? null
+            : FloatingActionButton(
+                key: const Key('add-button'),
+                tooltip: 'Agregar',
+                backgroundColor: AppColors.green,
+                foregroundColor: const Color(0xFF001A13),
+                onPressed: _addMovement,
+                child: const Icon(Icons.add_rounded, size: 28),
+              ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),
