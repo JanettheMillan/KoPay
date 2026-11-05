@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import 'providers/movement_provider.dart';
 import 'screens/home_screen.dart';
 import 'utils/app_colors.dart';
 
@@ -13,7 +15,12 @@ void main() {
   }
   SystemChrome.setSystemUIOverlayStyle(AppColors.systemOverlay);
 
-  runApp(const KopayApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => MovementProvider()..load(),
+      child: const KopayApp(),
+    ),
+  );
 }
 
 class KopayApp extends StatelessWidget {
