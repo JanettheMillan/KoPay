@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../database/database_helper.dart';
 import '../models/income_model.dart';
+import '../utils/validators.dart';
 
 /// Estado de los ingresos para las pantallas.
 ///
@@ -41,16 +42,25 @@ class IncomeProvider extends ChangeNotifier {
   }
 
   /// Guarda un ingreso nuevo y devuelve el registro con su `id`.
+  /// Lanza [ValidationException] si el ingreso no es válido.
   Future<Income> add(Income income) async {
+    _validate(income);
     final saved = await _db.insertIncome(income);
     await _reload();
     return saved;
   }
 
   /// Guarda los cambios de un ingreso existente.
+  /// Lanza [ValidationException] si el ingreso no es válido.
   Future<void> update(Income income) async {
+    _validate(income);
     await _db.updateIncome(income);
     await _reload();
+  }
+
+  void _validate(Income income) {
+    final error = Validators.checkIncome(income);
+    if (error != null) throw ValidationException(error);
   }
 
   /// Borra el ingreso con ese [id].
