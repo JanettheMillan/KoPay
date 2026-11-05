@@ -947,3 +947,35 @@ Para repetir el recorrido en un teléfono, usar `-d <id del dispositivo>` en lug
 | :--- | :--- | :--- | :--- |
 | D-04 | Baja | En la hoja del botón +, cada opción era un `ListTile` sin `Material` propio: el fondo de la hoja tapaba el efecto al tocar, y en modo debug Flutter lanzaba una aserción al abrir el menú. | **Corregido** en este PR (`lib/main.dart`, `Material` transparente). |
 | OBS-01 | Descartado | A 390 pt, la fila del balance de Inicio se desborda 12 px en el widget test. | **Falso positivo.** La fuente de prueba es más ancha que la real; con fuentes reales a 390 pt no hubo desbordes (paso 1). |
+
+### 8.3 Ejecución S1-18: flujo completo de gasto e ingreso hasta el resumen
+
+| Campo | Valor |
+| :--- | :--- |
+| Caso | INT-01 · Registrar gasto y actualizar resumen, ampliado con un ingreso |
+| Historia de usuario | HU-01, HU-02, HU-09 |
+| Tarjeta / Issue | S1-18 · [#7](https://github.com/JanettheMillan/KoPay/issues/7) |
+| Tipo | Integración |
+| Fecha y hora | 2026-11-05 17:56 |
+| Responsable | `GleipM` |
+| Versión o commit | `develop` en `850ecf4` |
+| Entorno | Flutter 3.47.6 (stable), macOS 27.0.1 (darwin-arm64), app de escritorio en debug, 390 × 844 pt, SQLite real |
+| Datos usados | Base vacía. Gasto "Prueba café" de 50 en Comida; ingreso "Nómina" de 500; ambos con fecha de hoy (noviembre 2026) |
+| Comando | `flutter test integration_test/s1_18_flujo_completo_test.dart -d macos` |
+
+| Campo | Valor |
+| :--- | :--- |
+| Pasos realizados | 1. Abrir la app con la base vacía y anotar los totales de Inicio. 2. + → Gasto: 50, "Prueba café", Comida → Guardar. 3. + → Ingreso: "Nómina", 500 → Guardar. 4. Abrir Movimientos. 5. Abrir Inicio y anotar los totales. |
+| Resultado esperado | El gasto y el ingreso aparecen en Movimientos y en Inicio. Con la base vacía, Inicio muestra ingresos `$500`, gastos `$50` y balance `$450.00` para noviembre 2026. |
+| Resultado observado | **Movimientos:** correcto; aparecen "Prueba café" `−$50.00` y "Nómina" `+$500.00`. **Inicio:** no cambia. Antes y después muestra balance `$9,509.50`, ingresos `$12,000` y gastos `$2,491`, y lista Luz, Cine, Transporte, Súper y Salario. No aparecen "Prueba café" ni "Nómina". |
+| Estado | **Fallido** |
+| Evidencia | [1-inicio-antes](evidencias/s1-18/1-inicio-antes.png) · [2-gasto-guardado](evidencias/s1-18/2-gasto-guardado.png) · [4-movimientos](evidencias/s1-18/4-movimientos.png) · [5-inicio-despues](evidencias/s1-18/5-inicio-despues.png). Salida: `Expected: '$500'  Actual: '$12,000'` (Ingresos del mes) · `Some tests failed.` |
+| Defecto | D-05 |
+
+La primera verificación que falla es la de ingresos; las de gastos, balance y filas de Inicio fallarían igual (los valores observados están arriba). El paso 3 no tiene captura propia; su resultado se ve en la captura 4.
+
+#### Defectos encontrados
+
+| Id | Severidad | Defecto | Dónde | Propuesta |
+| :--- | :--- | :--- | :--- | :--- |
+| D-05 | Alta | Inicio muestra datos de ejemplo fijos (`_sampleMoves()` de S1-06) y no escucha `MovementProvider` ni `IncomeProvider`. El resumen del mes y sus movimientos no reflejan lo que el usuario guarda. Bloquea HU-01, HU-02 y HU-09 ("aparece en Inicio; el saldo del mes se actualiza"). | `lib/screens/home_screen.dart` | Leer movimientos e ingresos de los providers (`forMonth`, `expensesForMonth`, `entriesForMonth`, `totalForMonth`), quitar los datos de ejemplo y mostrar un estado vacío. Al corregirlo, volver a ejecutar este caso; la prueba ya verifica `$500`, `$50` y `$450.00`. |
