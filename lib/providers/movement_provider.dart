@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../database/database_helper.dart';
 import '../models/movement_model.dart';
+import '../utils/validators.dart';
 
 /// Estado de los movimientos para las pantallas.
 ///
@@ -41,16 +42,25 @@ class MovementProvider extends ChangeNotifier {
   }
 
   /// Guarda un movimiento nuevo y devuelve el registro con su `id`.
+  /// Lanza [ValidationException] si el movimiento no es válido.
   Future<Movement> add(Movement movement) async {
+    _validate(movement);
     final saved = await _db.insertMovement(movement);
     await _reload();
     return saved;
   }
 
   /// Guarda los cambios de un movimiento existente.
+  /// Lanza [ValidationException] si el movimiento no es válido.
   Future<void> update(Movement movement) async {
+    _validate(movement);
     await _db.updateMovement(movement);
     await _reload();
+  }
+
+  void _validate(Movement movement) {
+    final error = Validators.checkMovement(movement);
+    if (error != null) throw ValidationException(error);
   }
 
   /// Borra el movimiento con ese [id].
