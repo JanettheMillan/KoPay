@@ -883,3 +883,60 @@ Los casos que encontraron un defecto o que dependen de algo que todavía no exis
 | D-01 | Baja | `categoryEmoji` no ignora espacios ni mayúsculas y no tiene emoji para `Ingreso`. Una categoría escrita distinto se ve con el icono genérico. | `lib/widgets/category_picker_sheet.dart` | Normalizar con `trim()` y comparar sin mayúsculas; agregar `Ingreso` (💼, que ya usa el historial). |
 | D-02 | Baja | El plan (UT-03) espera un campo de tipo `legacy_income`, pero el modelo distingue los ingresos por la categoría `Ingreso` y el historial por `HistoryEntry.isIncome`. | `docs/plan-de-pruebas.md` o `lib/models/` | Decidir en equipo si se actualiza el caso del plan o se agrega el campo al modelo. |
 | D-03 | Media | `Movement.fromMap` e `Income.fromMap` aceptan fechas imposibles y las convierten en otra fecha sin avisar. Un dato corrupto o importado por CSV (HU-27) quedaría en otro mes. | `lib/models/movement_model.dart`, `lib/models/income_model.dart` | Validar que la fecha leída coincida con el texto, por ejemplo comparando año, mes y día después de `DateTime.parse`, y rechazar si no coincide. |
+
+### 8.2 Ejecución S1-17: pruebas de interfaz de formularios y navegación
+
+#### A. Widget tests automáticos
+
+| Campo | Valor |
+| :--- | :--- |
+| Tarjeta | S1-17 · [#9](https://github.com/JanettheMillan/KoPay/issues/9) |
+| Fecha | 2026-11-05 |
+| Responsable | `GleipM` |
+| Versión | `develop` en `2c107e0`, más la corrección D-04 de este PR |
+| Entorno | Flutter 3.47.6 (stable), `flutter test` en macOS, superficie de 600 × 844 pt, tema oscuro |
+| Archivo | `test/ui_forms_navigation_test.dart` |
+| Comando | `flutter test test/ui_forms_navigation_test.dart -r expanded` |
+| Salida | `00:01 +7 ~2: All tests passed!` (7 aprobadas y 2 bloqueadas) |
+
+La prueba monta la app completa (`KopayApp`) con providers en memoria que aplican las mismas validaciones (`Validators`) que los reales, sin SQLite.
+
+| Caso | Datos usados | Resultado | Observado |
+| :--- | :--- | :--- | :--- |
+| NAV-01 · Las tres pestañas cambian de pantalla | Sin registros | **Aprobado** | Inicio muestra el balance, Movimientos el mensaje vacío y el botón +, y Ajustes no tiene botón +. |
+| NAV-02 · El botón + ofrece gasto o ingreso | — | **Aprobado** (tras D-04) | Muestra "Gasto o movimiento" e "Ingreso" y se cierra sin elegir. |
+| UI-02 · Validación de gasto | Vacío; monto `0`; monto `50` con descripción de solo espacios | **Aprobado** | Aparecen "Escribe un monto", "Escribe una descripción", "Elige una categoría" y "El monto debe ser mayor que cero". El formulario sigue abierto y no se guarda nada. |
+| UI-02b · Gasto válido | `50`, "Café", Comida | **Aprobado** | Se cierra, muestra "Gasto guardado" y se guarda como `-50`. En Movimientos aparece "Café" con `−$50.00`. |
+| UI-ING-01 · Ingreso incompleto | Vacío; solo nombre "Nómina" | **Aprobado** | Aparecen "Escribe el nombre del ingreso" y "Escribe un monto". Sigue abierto y no se guarda nada. |
+| UI-ING-02 · Ingreso válido | "Nómina", `500`, hoy; gasto previo de 2020 | **Aprobado** | Muestra "Ingreso guardado". En Movimientos, "Nómina" `+$500.00` aparece antes que el gasto de 2020. |
+| UI-HIS-01 · Editar desde el historial | Gasto "Café" | **Aprobado** | Tocar la fila abre "Editar movimiento". Al cambiar a "Desayuno" la lista se actualiza. |
+| UI-07 · Pago inválido de deuda | — | **Bloqueado** | Las deudas no existen en el Sprint 1 (HU-22). |
+| FUT-25 · Entrada a vista de contador | — | **Bloqueado** | No hay inicio de sesión ni vista de contador (HU-37). |
+
+#### B. Recorrido en dispositivo (lo llena quien lo ejecuta)
+
+Ejecutar `flutter run` en un teléfono o emulador con la app recién instalada. Guardar una captura por paso en `docs/evidencias/s1-17/`.
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | *pendiente* |
+| Dispositivo y sistema | *pendiente* (por ejemplo "iPhone 15, iOS 18.1" o "Pixel 7 emulador, Android 14") |
+| Versión | *pendiente* (commit de `develop`) |
+
+| Paso | Acción | Esperado | Resultado real | Captura |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | Abrir la app | Inicio sin errores; el balance cabe en una línea (OBS-01) | *pendiente* | *pendiente* |
+| 2 | Tocar Movimientos y luego Ajustes | Cambia la pantalla; en Ajustes no hay botón + | *pendiente* | *pendiente* |
+| 3 | + → Gasto → Guardar vacío | Tres mensajes de error; la hoja sigue abierta | *pendiente* | *pendiente* |
+| 4 | Monto `0` → Guardar | "El monto debe ser mayor que cero" | *pendiente* | *pendiente* |
+| 5 | `50`, "Café", Comida → Guardar | "Gasto guardado"; aparece en Movimientos con `−$50.00` | *pendiente* | *pendiente* |
+| 6 | + → Ingreso → Guardar vacío | Errores de nombre y monto | *pendiente* | *pendiente* |
+| 7 | "Nómina", `500` → Guardar | "Ingreso guardado"; aparece en Movimientos con `+$500.00` | *pendiente* | *pendiente* |
+| 8 | Cerrar la app por completo y volver a abrirla | "Café" y "Nómina" siguen en Movimientos (SQLite) | *pendiente* | *pendiente* |
+
+#### Defectos y observaciones
+
+| Id | Severidad | Descripción | Estado |
+| :--- | :--- | :--- | :--- |
+| D-04 | Baja | En la hoja del botón +, cada opción era un `ListTile` sin `Material` propio: el fondo de la hoja tapaba el efecto al tocar, y en modo debug Flutter lanzaba una aserción al abrir el menú. | **Corregido** en este PR (`lib/main.dart`, `Material` transparente). |
+| OBS-01 | Por verificar | A 390 pt de ancho, la fila del balance de Inicio se desborda 12 px en el widget test. La fuente de prueba es más ancha que la real, así que puede ser falso positivo. | Se confirma en el paso 1 del recorrido en dispositivo. |

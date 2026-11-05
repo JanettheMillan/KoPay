@@ -226,22 +226,26 @@ class _AddChooser extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget option(String value, String emoji, String title, String subtitle) {
-      return ListTile(
-        key: Key('add-$value'),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceHi,
-            borderRadius: BorderRadius.circular(10),
+      // Material propio: el fondo de la hoja taparía el efecto al tocar.
+      return Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          key: Key('add-$value'),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceHi,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Text(emoji, style: const TextStyle(fontSize: 20)),
           ),
-          alignment: Alignment.center,
-          child: Text(emoji, style: const TextStyle(fontSize: 20)),
+          title: Text(title, style: TextStyle(color: AppColors.text)),
+          subtitle: Text(subtitle, style: TextStyle(color: AppColors.text3)),
+          onTap: () => Navigator.of(context).pop(value),
         ),
-        title: Text(title, style: TextStyle(color: AppColors.text)),
-        subtitle: Text(subtitle, style: TextStyle(color: AppColors.text3)),
-        onTap: () => Navigator.of(context).pop(value),
       );
     }
 
