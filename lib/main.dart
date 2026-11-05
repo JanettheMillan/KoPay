@@ -7,7 +7,9 @@ import 'providers/income_provider.dart';
 import 'providers/movement_provider.dart';
 import 'screens/home_screen.dart';
 import 'utils/app_colors.dart';
+import 'widgets/add_income_sheet.dart';
 import 'widgets/add_movement_sheet.dart';
+import 'widgets/ui_kit.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -152,15 +154,25 @@ class _MainShellState extends State<MainShell> {
     _PlaceholderPage(title: 'Ajustes', icon: Icons.settings_outlined),
   ];
 
-  Future<void> _addMovement() async {
+  /// El botón + pregunta qué registrar y abre el formulario elegido.
+  Future<void> _add() async {
     final messenger = ScaffoldMessenger.of(context);
-    final saved = await showAddMovementSheet(context);
-    if (saved == null) return;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(saved.isExpense ? 'Gasto guardado' : 'Entrada guardada'),
-      ),
-    );
+    final choice = await showKopaySheet<String>(context, const _AddChooser());
+    if (!mounted || choice == null) return;
+
+    String? message;
+    if (choice == 'movement') {
+      final saved = await showAddMovementSheet(context);
+      if (saved != null) {
+        message = saved.isExpense ? 'Gasto guardado' : 'Entrada guardada';
+      }
+    } else {
+      final saved = await showAddIncomeSheet(context);
+      if (saved != null) message = 'Ingreso guardado';
+    }
+    if (message != null) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   @override
@@ -177,7 +189,7 @@ class _MainShellState extends State<MainShell> {
                 tooltip: 'Agregar',
                 backgroundColor: AppColors.green,
                 foregroundColor: const Color(0xFF001A13),
-                onPressed: _addMovement,
+                onPressed: _add,
                 child: const Icon(Icons.add_rounded, size: 28),
               ),
         bottomNavigationBar: NavigationBar(
@@ -201,6 +213,44 @@ class _MainShellState extends State<MainShell> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Hoja que abre el botón +: elegir entre gasto o ingreso.
+class _AddChooser extends StatelessWidget {
+  const _AddChooser();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget option(String value, String emoji, String title, String subtitle) {
+      return ListTile(
+        key: Key('add-$value'),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceHi,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          child: Text(emoji, style: const TextStyle(fontSize: 20)),
+        ),
+        title: Text(title, style: TextStyle(color: AppColors.text)),
+        subtitle: Text(subtitle, style: TextStyle(color: AppColors.text3)),
+        onTap: () => Navigator.of(context).pop(value),
+      );
+    }
+
+    return KopaySheet(
+      title: '¿Qué quieres registrar?',
+      child: Column(
+        children: [
+          option('movement', '🧾', 'Gasto o movimiento', 'Compras, pagos'),
+          option('income', '💼', 'Ingreso', 'Salario, bonos, ventas'),
+        ],
       ),
     );
   }
