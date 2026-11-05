@@ -913,30 +913,37 @@ La prueba monta la app completa (`KopayApp`) con providers en memoria que aplica
 | UI-07 · Pago inválido de deuda | — | **Bloqueado** | Las deudas no existen en el Sprint 1 (HU-22). |
 | FUT-25 · Entrada a vista de contador | — | **Bloqueado** | No hay inicio de sesión ni vista de contador (HU-37). |
 
-#### B. Recorrido en dispositivo (lo llena quien lo ejecuta)
+#### B. Recorrido en dispositivo
 
-Ejecutar `flutter run` en un teléfono o emulador con la app recién instalada. Guardar una captura por paso en `docs/evidencias/s1-17/`.
+Se ejecutó la app nativa de macOS en esta computadora con `integration_test`: proceso real, SQLite real en el contenedor de la app, fuentes reales y ventana de 390 × 844 pt (ancho de teléfono). No se usó un teléfono físico. La prueba escribe en los campos, toca los botones y guarda una captura por paso. El paso 8 se ejecutó en un **proceso nuevo**, que solo lee lo que quedó guardado.
 
 | Campo | Valor |
 | :--- | :--- |
-| Fecha | *pendiente* |
-| Dispositivo y sistema | *pendiente* (por ejemplo "iPhone 15, iOS 18.1" o "Pixel 7 emulador, Android 14") |
-| Versión | *pendiente* (commit de `develop`) |
+| Fecha | 2026-11-05 17:37 |
+| Dispositivo y sistema | macOS 27.0.1 (darwin-arm64), app de escritorio en modo debug, 390 × 844 pt |
+| Versión | `develop` en `2c107e0`, más la corrección D-04 de este PR |
+| Archivo | `integration_test/s1_17_recorrido_test.dart` |
+| Comandos | `flutter test integration_test/s1_17_recorrido_test.dart -d macos --dart-define=FASE=A`, y después `--dart-define=FASE=B` |
+| Salida | A: `00:13 +1: All tests passed!` · B: `00:01 +1: All tests passed!` · desbordes registrados: ninguno |
 
 | Paso | Acción | Esperado | Resultado real | Captura |
 | :--- | :--- | :--- | :--- | :--- |
-| 1 | Abrir la app | Inicio sin errores; el balance cabe en una línea (OBS-01) | *pendiente* | *pendiente* |
-| 2 | Tocar Movimientos y luego Ajustes | Cambia la pantalla; en Ajustes no hay botón + | *pendiente* | *pendiente* |
-| 3 | + → Gasto → Guardar vacío | Tres mensajes de error; la hoja sigue abierta | *pendiente* | *pendiente* |
-| 4 | Monto `0` → Guardar | "El monto debe ser mayor que cero" | *pendiente* | *pendiente* |
-| 5 | `50`, "Café", Comida → Guardar | "Gasto guardado"; aparece en Movimientos con `−$50.00` | *pendiente* | *pendiente* |
-| 6 | + → Ingreso → Guardar vacío | Errores de nombre y monto | *pendiente* | *pendiente* |
-| 7 | "Nómina", `500` → Guardar | "Ingreso guardado"; aparece en Movimientos con `+$500.00` | *pendiente* | *pendiente* |
-| 8 | Cerrar la app por completo y volver a abrirla | "Café" y "Nómina" siguen en Movimientos (SQLite) | *pendiente* | *pendiente* |
+| 1 | Abrir la app con la base vacía | Inicio sin errores; el balance cabe en una línea | **Aprobado.** Sin desbordes a 390 pt. Inicio muestra los datos de ejemplo de S1-06. | [captura](evidencias/s1-17/paso1-inicio.png) |
+| 2 | Movimientos y luego Ajustes | Cambia la pantalla; en Ajustes no hay + | **Aprobado.** Movimientos muestra "Aún no hay movimientos"; Ajustes no tiene +. | [captura](evidencias/s1-17/paso2a-movimientos-vacio.png) · [captura](evidencias/s1-17/paso2b-ajustes.png) |
+| 3 | + → Gasto → Guardar vacío | Tres errores; la hoja sigue abierta | **Aprobado.** Aparecen "Escribe un monto", "Escribe una descripción" y "Elige una categoría". | [captura](evidencias/s1-17/paso3a-menu-agregar.png) · [captura](evidencias/s1-17/paso3b-gasto-vacio.png) |
+| 4 | Monto `0` → Guardar | "El monto debe ser mayor que cero" | **Aprobado.** | [captura](evidencias/s1-17/paso4-monto-cero.png) |
+| 5 | `50`, "Café", Comida → Guardar | Se guarda; aparece con `−$50.00` | **Aprobado.** La hoja se cierra y "Café" aparece con `−$50.00`. | [captura](evidencias/s1-17/paso5a-gasto-lleno.png) · [captura](evidencias/s1-17/paso5b-gasto-guardado.png) |
+| 6 | + → Ingreso → Guardar vacío | Errores de nombre y monto | **Aprobado.** | [captura](evidencias/s1-17/paso6-ingreso-vacio.png) |
+| 7 | "Nómina", `500` → Guardar | Se guarda; aparece con `+$500.00` | **Aprobado.** | [captura](evidencias/s1-17/paso7-ingreso-guardado.png) |
+| 8 | Proceso nuevo; abrir Movimientos | "Café" y "Nómina" siguen guardados | **Aprobado.** Ambos se leen de SQLite con sus montos. | [captura](evidencias/s1-17/paso8-reabrir.png) |
+
+Observación para S1-18: después del paso 7, Inicio sigue mostrando los datos de ejemplo (balance $9,509.50) y no incluye "Café" ni "Nómina" ([captura](evidencias/s1-17/paso7b-inicio-despues.png)). Se registra en S1-18.
+
+Para repetir el recorrido en un teléfono, usar `-d <id del dispositivo>` en lugar de `-d macos`.
 
 #### Defectos y observaciones
 
 | Id | Severidad | Descripción | Estado |
 | :--- | :--- | :--- | :--- |
 | D-04 | Baja | En la hoja del botón +, cada opción era un `ListTile` sin `Material` propio: el fondo de la hoja tapaba el efecto al tocar, y en modo debug Flutter lanzaba una aserción al abrir el menú. | **Corregido** en este PR (`lib/main.dart`, `Material` transparente). |
-| OBS-01 | Por verificar | A 390 pt de ancho, la fila del balance de Inicio se desborda 12 px en el widget test. La fuente de prueba es más ancha que la real, así que puede ser falso positivo. | Se confirma en el paso 1 del recorrido en dispositivo. |
+| OBS-01 | Descartado | A 390 pt, la fila del balance de Inicio se desborda 12 px en el widget test. | **Falso positivo.** La fuente de prueba es más ancha que la real; con fuentes reales a 390 pt no hubo desbordes (paso 1). |
