@@ -20,12 +20,14 @@ App Flutter de finanzas personales. Este archivo lo leen los agentes de IA y las
 - `flutter pub get`, `flutter analyze` sin errores y `flutter test` en verde.
 - Corre la app (`flutter run`) y toma una captura de lo que hiciste.
 - `git status`: solo deben aparecer los archivos de tu tarjeta. Usa `git add <archivos>`, nunca `git add .` sin revisar.
+- **Pruebas obligatorias:** no se sube código sin pruebas. Cada quien escribe y ejecuta las pruebas de su propia tarjeta (ver "Pruebas en cada PR").
 
 ## El Pull Request
 
 - Base: `develop`. Reviewer: `RuAbogado`.
 - Título: `[S1-XX] <título de la tarjeta>`.
 - Descripción: `Closes #N`, qué incluye y la captura de pantalla.
+- Descripción: agrega la sección **Pruebas** (ver abajo).
 - Un commit limpio por tarjeta. Mensaje: `feat: <qué hiciste> (S1-XX)`.
 - No abras el siguiente PR hasta que el anterior esté mergeado.
 
@@ -49,10 +51,32 @@ git rebase --onto origin/develop <commit-de-la-tarjeta-anterior>
 git push --force-with-lease
 ```
 
+## Pruebas en cada PR
+
+Un PR sin pruebas no se revisa ni se mergea. Quien hace la tarjeta es quien deja sus pruebas; QA no las hace por los demás.
+
+La descripción del PR debe incluir una sección **Pruebas** con:
+
+- **Historia de usuario** que implementa la tarjeta (`HU-xx`), tal como está en `docs/historias-de-usuario.md`. Las historias no se modifican.
+- **Caso del plan** que cubre (`UT-xx`, `UI-xx`, `INT-xx`) según `docs/plan-de-pruebas.md`. Si el caso no existe en el plan, dilo y escribe el nombre de la prueba nueva.
+- **Archivo y nombre de cada prueba** que escribiste o ejecutaste, por ejemplo `test/validators_test.dart`.
+- **Resultado real**: comando ejecutado y cuántas pruebas pasaron, fallaron u omitieron. Si algo falla, abre un issue con la etiqueta `bug` y enlázalo.
+- **Evidencia**: captura o salida de consola. Si cambia la interfaz, prueba también en un iPhone o un Android (teclado, botones y sin `RenderFlex overflow`), como pide el Manual de Estilo.
+
+En el código de la prueba, incluye en el nombre el identificador del caso del plan (por ejemplo `UT-03 · ...`) y la historia (`HU-02`) para que se pueda rastrear.
+
+Todo el código del repositorio debe responder a una historia de usuario. Si no puedes enlazar tu cambio a una `HU-xx`, no pertenece a esta tarjeta.
+
 ## Project y tarjetas
 
-- Al abrir el PR, mueve tu tarjeta a **In review**.
+El Project 3 es el reflejo del trabajo real. Debe verse un flujo, no tarjetas que saltan al final.
+
+- **Toda tarjeta tiene responsable** y sprint antes de empezar. No se trabaja en una tarjeta sin asignar.
+- **Una tarjeta en In progress por persona.** Mueve la tuya a **In progress** al empezar y a **In review** al abrir el PR.
+- **Al terminar, pasa a Done** solo si el PR está mergeado. En la tarjeta (o en el issue) deja un comentario con: el PR, la historia de usuario, los casos del plan y las pruebas que pasaron, con el resultado real. Una tarjeta en Done sin pruebas citadas no está terminada.
+- Las tarjetas de QA (S1-16, S1-17, S1-18 y similares) citan los mismos casos del plan que ejecutan y enlazan su evidencia.
 - Al mergear, el issue se cierra a mano porque `develop` no es la rama por defecto. Lo cierra quien mergea.
+- Solo se usan las etiquetas `feature`, `bug` y `bloqueado`.
 
 ## Alcance del primer entregable (5% del front)
 
