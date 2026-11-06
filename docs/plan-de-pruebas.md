@@ -16,6 +16,7 @@ El plan prioriza la lógica aislada para mantener la ejecución manejable: **85 
 6. [Casos de integración](#6-casos-de-integración)
 7. [Cobertura por módulo](#7-cobertura-por-módulo)
 8. [Registro y evidencia](#8-registro-y-evidencia)
+9. [Alineación con el Manual de Estilo](#9-alineación-con-el-manual-de-estilo)
 
 ---
 
@@ -979,3 +980,83 @@ La primera verificación que falla es la de ingresos; las de gastos, balance y f
 | Id | Severidad | Defecto | Dónde | Propuesta |
 | :--- | :--- | :--- | :--- | :--- |
 | D-05 | Alta | Inicio muestra datos de ejemplo fijos (`_sampleMoves()` de S1-06) y no escucha `MovementProvider` ni `IncomeProvider`. El resumen del mes y sus movimientos no reflejan lo que el usuario guarda. Bloquea HU-01, HU-02 y HU-09 ("aparece en Inicio; el saldo del mes se actualiza"). | `lib/screens/home_screen.dart` | Leer movimientos e ingresos de los providers (`forMonth`, `expensesForMonth`, `entriesForMonth`, `totalForMonth`), quitar los datos de ejemplo y mostrar un estado vacío. Al corregirlo, volver a ejecutar este caso; la prueba ya verifica `$500`, `$50` y `$450.00`. |
+
+---
+
+## 9. Alineación con el Manual de Estilo
+
+Esta sección **agrega** pruebas y evidencia para cumplir la Definition of Done (DoD, sección 5.2) del *Manual de Estilo de Trabajo: KoPay V2*. No modifica las historias de usuario, sus criterios ni los casos de las secciones 4 a 6; los casos nuevos se enlazan a historias que ya existen.
+
+### 9.1 Qué pide el DoD y dónde se cubre
+
+| Punto del DoD | Cómo se cubre | Estado |
+| :--- | :--- | :--- |
+| Compila y ejecuta sin errores ni advertencias críticas | `flutter analyze` y `flutter test` en cada PR | Se cumple en los PR del Sprint 1 |
+| Prueba manual en **un iPhone y un Android**: diseño responsive, teclado, botones y ausencia de `RenderFlex overflow` | Casos DISP-01 a DISP-03 (9.2) | iPhone: por confirmar. Android: **pendiente** |
+| Precisión financiera exacta, validada con pruebas de los cálculos | Casos PF-01 a PF-04 (9.3) | **Pendiente** |
+| Revisión aprobada por un compañero y merge a la rama base | Pull Request revisado antes de cada merge | Se cumple |
+
+### 9.2 Casos de dispositivo (iPhone y Android)
+
+Se ejecutan con la app en modo `release` o `debug` en un teléfono físico o emulador, con la base vacía. Anotar cada ejecución con [plantilla-registro-pruebas.md](plantilla-registro-pruebas.md) y guardar capturas en `docs/evidencias/`.
+
+#### DISP-01 · Formularios en iPhone
+
+- **Historias:** HU-01, HU-02.
+- **Acción:** Abrir **+** → Gasto, luego **+** → Ingreso. En cada formulario tocar un campo para abrir el teclado, tocar un área vacía y cerrar con la **X**.
+- **Resultado esperado:** El teclado se oculta al tocar un área vacía o al arrastrar. La **X** cierra el formulario. Los botones responden y no aparece `RenderFlex overflow`.
+- **Estado:** Pendiente de confirmar por quien lo ejecute.
+
+#### DISP-02 · Formularios en Android
+
+- **Historias:** HU-01, HU-02.
+- **Acción:** La misma de DISP-01 en un dispositivo o emulador Android.
+- **Resultado esperado:** El mismo de DISP-01.
+- **Estado:** **Pendiente.** No hay un Android disponible hasta ahora.
+
+#### DISP-03 · Navegación y diseño responsive
+
+- **Historias:** HU-01, HU-02, HU-09.
+- **Acción:** En iPhone y en Android, recorrer Inicio, Movimientos y Ajustes, y registrar un gasto y un ingreso que aparezcan en Movimientos. Revisar la consola en busca de `RenderFlex overflow`.
+- **Resultado esperado:** Cada pantalla cabe sin cortes ni desbordes y los datos guardados aparecen en Movimientos.
+- **Estado:** Pendiente. El recorrido de S1-17 (8.2) se hizo en macOS a 390 × 844 pt, no en teléfono.
+
+### 9.3 Precisión financiera
+
+La app representa los montos con `double`. El Manual acepta migrar a enteros en centavos como **mejora futura**; mientras tanto se prueba que los cálculos y su presentación con dos decimales no muestren errores visibles de punto flotante.
+
+#### PF-01 · Suma de montos decimales
+
+- **Historias:** HU-09.
+- **Acción:** Sumar tres gastos de `0.10`.
+- **Resultado esperado:** El total mostrado es `$0.30`, no `$0.30000000000000004` ni un redondeo distinto.
+- **Estado:** Pendiente.
+
+#### PF-02 · Balance con ingresos y gastos decimales
+
+- **Historias:** HU-09.
+- **Acción:** Registrar un ingreso de `1000.10` y gastos de `0.20` y `0.10`.
+- **Resultado esperado:** El balance mostrado es `$999.80`.
+- **Estado:** Pendiente.
+
+#### PF-03 · Formato con dos decimales
+
+- **Historias:** HU-01, HU-02.
+- **Acción:** Formatear `1234.5`, `0.005` y `0.015`.
+- **Resultado esperado:** Siempre dos decimales y separador de miles, sin errores de redondeo visibles.
+- **Estado:** Pendiente.
+
+#### PF-04 · Monto escrito con comas
+
+- **Historias:** HU-01, HU-02.
+- **Acción:** Interpretar `12,000.50` como monto.
+- **Resultado esperado:** El valor guardado es `12000.5`.
+- **Estado:** Pendiente.
+
+### 9.4 Evidencia que pide el Manual fuera del código
+
+| Evidencia | Dónde | Estado |
+| :--- | :--- | :--- |
+| Captura del tablero de GitHub Projects al cierre de cada sprint | Carpeta de evidencias del sprint | Pendiente para el cierre del Sprint 1 |
+| Historial de commits y Pull Requests vinculados a su Issue | GitHub | Se cumple |
+| Carpeta de Google Drive con fecha y participantes de las dailys | Drive del equipo | Pendiente de acordar quién la lleva |
