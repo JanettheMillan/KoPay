@@ -77,7 +77,7 @@ El Project 3 es el reflejo del trabajo real. Debe verse un flujo, no tarjetas qu
 - **Una tarjeta en In progress por persona.** Mueve la tuya a **In progress** al empezar y a **In review** al abrir el PR.
 - **Al terminar, pasa a Done** solo si el PR está mergeado. En la tarjeta (o en el issue) deja un comentario con: el PR, la historia de usuario, los casos del plan y las pruebas que pasaron, con el resultado real. Una tarjeta en Done sin pruebas citadas no está terminada.
 - Las tarjetas de QA (S1-16, S1-17, S1-18 y similares) citan los mismos casos del plan que ejecutan y enlazan su evidencia.
-- Al mergear, el issue se cierra a mano porque `develop` no es la rama por defecto. Lo cierra quien mergea.
+- Al mergear un PR, el Project mueve solo su tarjeta a Done (workflows "Pull request merged" e "Item closed"). El issue no se cierra solo con `Closes #N` porque `develop` no es la rama por defecto: lo cierra quien mergea, y al cerrarlo la tarjeta queda en Done.
 - Solo se usan las etiquetas `feature`, `bug` y `bloqueado`.
 
 ### Flujo del tablero entre sprints
