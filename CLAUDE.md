@@ -58,8 +58,9 @@ Un PR sin pruebas no se revisa ni se mergea. Quien hace la tarjeta es quien deja
 La descripción del PR debe incluir una sección **Pruebas** con:
 
 - **Historia de usuario** que implementa la tarjeta (`HU-xx`), tal como está en `docs/historias-de-usuario.md`. Las historias no se modifican.
+- **Archivos de código** que forman parte de esa historia (los que creaste o modificaste), con su ruta, por ejemplo `lib/widgets/add_income_sheet.dart`.
 - **Caso del plan** que cubre (`UT-xx`, `UI-xx`, `INT-xx`) según `docs/plan-de-pruebas.md`. Si el caso no existe en el plan, dilo y escribe el nombre de la prueba nueva.
-- **Archivo y nombre de cada prueba** que escribiste o ejecutaste, por ejemplo `test/validators_test.dart`.
+- **Dónde están las pruebas**: ruta del archivo y nombre de cada prueba que escribiste o ejecutaste, por ejemplo `test/validators_test.dart`.
 - **Resultado real**: comando ejecutado y cuántas pruebas pasaron, fallaron u omitieron. Si algo falla, abre un issue con la etiqueta `bug` y enlázalo.
 - **Evidencia**: captura o salida de consola. Si cambia la interfaz, prueba también en un iPhone o un Android (teclado, botones y sin `RenderFlex overflow`), como pide el Manual de Estilo.
 
@@ -72,11 +73,22 @@ Todo el código del repositorio debe responder a una historia de usuario. Si no 
 El Project 3 es el reflejo del trabajo real. Debe verse un flujo, no tarjetas que saltan al final.
 
 - **Toda tarjeta tiene responsable** y sprint antes de empezar. No se trabaja en una tarjeta sin asignar.
+- **Cada tarjeta referencia** la historia de usuario que resuelve (`HU-xx`), los archivos de código que la implementan y la ruta de sus pruebas. Se llena al abrir el PR y se mantiene al día en la tarjeta o el issue.
 - **Una tarjeta en In progress por persona.** Mueve la tuya a **In progress** al empezar y a **In review** al abrir el PR.
 - **Al terminar, pasa a Done** solo si el PR está mergeado. En la tarjeta (o en el issue) deja un comentario con: el PR, la historia de usuario, los casos del plan y las pruebas que pasaron, con el resultado real. Una tarjeta en Done sin pruebas citadas no está terminada.
 - Las tarjetas de QA (S1-16, S1-17, S1-18 y similares) citan los mismos casos del plan que ejecutan y enlazan su evidencia.
 - Al mergear, el issue se cierra a mano porque `develop` no es la rama por defecto. Lo cierra quien mergea.
 - Solo se usan las etiquetas `feature`, `bug` y `bloqueado`.
+
+### Flujo del tablero entre sprints
+
+El tablero debe mostrar trabajo en curso, no todo en Backlog y todo en Done.
+
+- **Backlog:** tarjetas de sprints futuros. Aquí no se trabaja.
+- **Ready:** solo tarjetas del **sprint activo**, con responsable asignado.
+- **In progress, In review y Done:** siguen el flujo de arriba, una tarjeta en progreso por persona.
+- **Al cerrar un sprint:** se revisa que todas sus tarjetas estén en Done (o se explica por qué no), y las tarjetas del siguiente sprint pasan de Backlog a **Ready**, ya asignadas. Lo hace quien cierra el sprint.
+- **Ninguna tarjeta sin responsable** en Ready, In progress, In review ni Done. Los defectos nuevos (`bug`) se asignan al abrirlos.
 
 ## Alcance del primer entregable (5% del front)
 
