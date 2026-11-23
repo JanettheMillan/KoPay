@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/category_provider.dart';
 import 'providers/income_provider.dart';
 import 'providers/movement_provider.dart';
 import 'screens/home_screen.dart';
@@ -25,6 +26,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => MovementProvider()..load()),
         ChangeNotifierProvider(create: (_) => IncomeProvider()..load()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()..load()),
       ],
       child: const KopayApp(),
     ),
