@@ -222,6 +222,30 @@ class DatabaseHelper {
     return db.delete(incomesTable, where: 'id = ?', whereArgs: [id]);
   }
 
+  // ── Ajustes ──────────────────────────────────────────────────
+
+  /// Valor guardado en `settings` para [key], o `null` si no existe.
+  Future<String?> getSetting(String key) async {
+    final db = await database;
+    final rows = await db.query(
+      settingsTable,
+      columns: ['value'],
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first['value'] as String;
+  }
+
+  /// Guarda [value] en `settings`; reemplaza el valor anterior de [key].
+  Future<void> setSetting(String key, String value) async {
+    final db = await database;
+    await db.insert(settingsTable, {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
   // ── Utilidades ───────────────────────────────────────────────
 
   /// Límites `[inicio, fin)` del mes en el mismo formato ISO que la

@@ -143,17 +143,11 @@ void main() {
       expect(categoryEmoji('Transporte'), '🚌');
     });
 
-    test(
-      'UT-20 · Emoji de categoría conocida con espacios y mayúsculas',
-      () {
-        expect(categoryEmoji(' comida '), '🛒');
-        expect(categoryEmoji('TRANSPORTE'), '🚌');
-        expect(categoryEmoji('Ingreso'), isNot('🏷️'));
-      },
-      skip:
-          'Fallido, defecto D-01: categoryEmoji no normaliza espacios ni '
-          'mayúsculas y no conoce la categoría "Ingreso".',
-    );
+    test('UT-20 · Emoji de categoría conocida con espacios y mayúsculas', () {
+      expect(categoryEmoji(' comida '), '🛒');
+      expect(categoryEmoji('TRANSPORTE'), '🚌');
+      expect(categoryEmoji('Ingreso'), isNot('🏷️'));
+    });
 
     test('UT-21 · Emoji de categoría desconocida', () {
       expect(categoryEmoji('Mascotas'), '🏷️');
