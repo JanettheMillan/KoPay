@@ -246,6 +246,29 @@ class DatabaseHelper {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  // ── Respaldo ─────────────────────────────────────────────────
+
+  /// Reemplaza todos los movimientos e ingresos por [movements] e
+  /// [incomes] en una sola transacción (HU-27). Si algo falla, SQLite
+  /// revierte y quedan los datos anteriores. Los `id` de los registros
+  /// nuevos los asigna la base.
+  Future<void> replaceFinancialData(
+    List<Movement> movements,
+    List<Income> incomes,
+  ) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete(movementsTable);
+      await txn.delete(incomesTable);
+      for (final m in movements) {
+        await txn.insert(movementsTable, m.toMap()..remove('id'));
+      }
+      for (final i in incomes) {
+        await txn.insert(incomesTable, i.toMap()..remove('id'));
+      }
+    });
+  }
+
   // ── Utilidades ───────────────────────────────────────────────
 
   /// Límites `[inicio, fin)` del mes en el mismo formato ISO que la

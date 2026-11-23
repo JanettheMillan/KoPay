@@ -60,7 +60,7 @@ tipo,fecha,importe,descripcion,categoria,nota
 | :--- | :--- | :--- |
 | `tipo` | Sí | `movimiento` o `ingreso`. Sin importar mayúsculas ni espacios a los lados. |
 | `fecha` | Sí | `AAAA-MM-DD` o `DD/MM/AAAA`. Debe ser una fecha real: `2026-02-30` se rechaza (defecto D-03). |
-| `importe` | Sí | Número sin símbolo de moneda ni separador de miles. Decimal con punto; si el separador del archivo es `;`, se acepta también coma decimal. En `movimiento` lleva signo (negativo = gasto). En `ingreso` debe ser mayor o igual a 0. |
+| `importe` | Sí | Número sin símbolo de moneda ni separador de miles. Decimal con punto; si el separador del archivo es `;`, se acepta también coma decimal. En `movimiento` lleva signo (negativo = gasto). En `ingreso` debe ser mayor que 0. En ambos casos, máximo dos decimales y distinto de 0, igual que en los formularios. |
 | `descripcion` | Sí | Texto no vacío. En `movimiento` es la descripción; en `ingreso`, el nombre. |
 | `categoria` | Solo en `movimiento` | Texto no vacío de hasta 30 caracteres. En `ingreso` se deja vacía. Si no existe en la lista de categorías, se agrega al importar. |
 | `nota` | No | Texto libre. Vacío se guarda como sin nota. |
