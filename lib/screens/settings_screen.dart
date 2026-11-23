@@ -1,13 +1,22 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../database/database_helper.dart';
+import '../providers/category_provider.dart';
+import '../providers/income_provider.dart';
+import '../providers/movement_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/backup_platform.dart';
+import '../services/backup_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
 import '../widgets/ui_kit.dart';
 
-/// Ajustes: moneda e idioma (HU-24, HU-25).
+/// Ajustes: moneda e idioma (HU-24, HU-25), exportar XLSX e importar
+/// CSV (HU-26, HU-27).
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -66,6 +75,145 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
+  // ── Respaldo (HU-26, HU-27) ─────────────────────────────────
+
+  /// Base para importar. Las pruebas la inyectan con un
+  /// `Provider<DatabaseHelper>`; en la app es la única instancia.
+  static DatabaseHelper _database(BuildContext context) =>
+      Provider.of<DatabaseHelper?>(context, listen: false) ??
+      DatabaseHelper.instance;
+
+  Future<void> _export(BuildContext context) async {
+    final s = AppStrings.read(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final movements = context.read<MovementProvider?>()?.movements ?? const [];
+    final incomes = context.read<IncomeProvider?>()?.incomes ?? const [];
+    try {
+      final bytes = BackupService.buildXlsx(movements, incomes);
+      await BackupPlatform.instance.shareXlsx(
+        bytes,
+        BackupService.fileName(DateTime.now()),
+      );
+      if (movements.isEmpty && incomes.isEmpty) {
+        messenger.showSnackBar(SnackBar(content: Text(s.exportEmpty)));
+      }
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(s.exportError)));
+    }
+  }
+
+  Future<void> _import(BuildContext context) async {
+    final s = AppStrings.read(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final movements = context.read<MovementProvider?>();
+    final incomes = context.read<IncomeProvider?>();
+    final categories = context.read<CategoryProvider?>();
+    final db = _database(context);
+
+    Uint8List? bytes;
+    try {
+      bytes = await BackupPlatform.instance.pickCsv();
+    } on FileTooLargeException {
+      messenger.showSnackBar(SnackBar(content: Text(s.importTooLarge)));
+      return;
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(s.importError)));
+      return;
+    }
+    if (bytes == null || !context.mounted) return;
+
+    final result = BackupService.parseCsvBytes(bytes);
+    if (!result.isValid) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          key: const Key('import-invalid'),
+          backgroundColor: AppColors.surface,
+          title: Text(
+            s.importInvalidTitle,
+            style: TextStyle(color: AppColors.text, fontSize: 17),
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              result.errorSummary(),
+              key: const Key('import-errors'),
+              style: TextStyle(color: AppColors.text2, fontSize: 14),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(s.close),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          s.importConfirmTitle,
+          style: TextStyle(color: AppColors.text, fontSize: 17),
+        ),
+        content: Text(
+          AppStrings.fill(s.importConfirmBody, [
+            movements?.movements.length ?? 0,
+            incomes?.incomes.length ?? 0,
+            result.movements.length,
+            result.incomes.length,
+          ]),
+          key: const Key('import-confirm-body'),
+          style: TextStyle(color: AppColors.text2, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('import-cancel'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(s.cancel),
+          ),
+          TextButton(
+            key: const Key('import-confirm'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.red),
+            child: Text(s.replace),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    try {
+      await db.replaceFinancialData(result.movements, result.incomes);
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(s.importError)));
+      return;
+    }
+
+    // Las categorías nuevas del archivo se agregan al selector; las que
+    // ya existen se dejan como están.
+    if (categories != null) {
+      for (final name in result.categories) {
+        if (categories.validate(name) == null) await categories.add(name);
+      }
+    }
+    await movements?.load();
+    await incomes?.load();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          AppStrings.fill(s.importDone, [
+            result.movements.length,
+            result.incomes.length,
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
@@ -91,18 +239,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Text(
-                s.preferences,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.text3,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
+            _SectionLabel(s.preferences),
             Container(
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -129,7 +266,58 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 28),
+            _SectionLabel(s.dataSection),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _SettingRow(
+                    key: const Key('settings-export'),
+                    icon: Icons.file_download_outlined,
+                    label: s.exportXlsx,
+                    value: 'XLSX',
+                    onTap: () => _export(context),
+                  ),
+                  Divider(height: 1, indent: 56, color: AppColors.hair),
+                  _SettingRow(
+                    key: const Key('settings-import'),
+                    icon: Icons.file_upload_outlined,
+                    label: s.importCsv,
+                    value: 'CSV',
+                    onTap: () => _import(context),
+                  ),
+                ],
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Título pequeño en mayúsculas sobre cada grupo de Ajustes.
+class _SectionLabel extends StatelessWidget {
+  final String text;
+
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.text3,
+          letterSpacing: 1.2,
         ),
       ),
     );
@@ -162,9 +350,15 @@ class _SettingRow extends StatelessWidget {
             children: [
               Icon(icon, color: AppColors.text2, size: 22),
               const SizedBox(width: 18),
-              Text(
-                label,
-                style: TextStyle(fontSize: 15, color: AppColors.text),
+              // Flexible: en pantallas angostas o con letra grande el
+              // nombre se recorta en vez de desbordar la fila.
+              Flexible(
+                flex: 2,
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, color: AppColors.text),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
