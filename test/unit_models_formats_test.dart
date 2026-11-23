@@ -93,13 +93,15 @@ void main() {
   });
 
   group('4.1 Formatos', () {
-    test(
-      'UT-14 · Formato de importe en MXN, USD y EUR',
-      () {},
-      skip:
-          'Bloqueado: FormatUtils.money solo formatea MXN; '
-          'la moneda configurable llega con HU-24 (Ajustes).',
-    );
+    test('UT-14 · HU-24 · Formato de importe en MXN, USD y EUR', () {
+      addTearDown(() => FormatUtils.configure(currency: 'MXN'));
+      FormatUtils.configure(currency: 'MXN');
+      expect(FormatUtils.money(1234.5), r'$1,234.50');
+      FormatUtils.configure(currency: 'USD');
+      expect(FormatUtils.money(1234.5), r'US$1,234.50');
+      FormatUtils.configure(currency: 'EUR');
+      expect(FormatUtils.money(1234.5), '€1,234.50');
+    });
 
     test('UT-14 (parcial) · Formato de importe en MXN', () {
       expect(FormatUtils.money(1234.5), r'$1,234.50');

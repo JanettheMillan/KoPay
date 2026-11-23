@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 import '../utils/app_colors.dart';
+import '../utils/app_strings.dart';
+import '../utils/format_utils.dart';
 import '../widgets/move_row.dart';
 
 /// Movimiento de ejemplo mientras no hay modelos ni base de datos.
@@ -21,23 +22,6 @@ class _SampleMove {
     this.date,
   );
 }
-
-const _monthNames = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-];
-
-final _money = NumberFormat.currency(
-  locale: 'es_MX',
-  symbol: r'$',
-  decimalDigits: 2,
-);
-
-final _moneyCompact = NumberFormat.currency(
-  locale: 'es_MX',
-  symbol: r'$',
-  decimalDigits: 0,
-);
 
 /// Datos fijos para el mes actual y el anterior.
 List<_SampleMove> _sampleMoves() {
@@ -86,12 +70,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final monthMoves = _moves
-        .where((m) =>
-            m.date.year == _selectedMonth.year &&
-            m.date.month == _selectedMonth.month)
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final monthMoves =
+        _moves
+            .where(
+              (m) =>
+                  m.date.year == _selectedMonth.year &&
+                  m.date.month == _selectedMonth.month,
+            )
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
 
     final income = monthMoves
         .where((m) => m.amount > 0)
@@ -152,7 +139,10 @@ class _Header extends StatelessWidget {
           ),
           children: [
             const TextSpan(text: 'kopay'),
-            TextSpan(text: '.', style: TextStyle(color: AppColors.green)),
+            TextSpan(
+              text: '.',
+              style: TextStyle(color: AppColors.green),
+            ),
           ],
         ),
       ),
@@ -180,15 +170,15 @@ class _Hero extends StatelessWidget {
     final balance = income - expenses;
     final isPositive = balance >= 0;
     final color = isPositive ? AppColors.green : AppColors.red;
-    final balStr = _money.format(balance.abs());
+    final s = AppStrings.of(context);
+    final balStr = FormatUtils.money(balance);
     final balMain = balStr.contains('.') ? balStr.split('.').first : balStr;
     final balDec = balStr.contains('.') ? '.${balStr.split('.').last}' : '';
 
     final now = DateTime.now();
     final isCurrentMonth =
         selectedMonth.year == now.year && selectedMonth.month == now.month;
-    final monthLabel =
-        '${_monthNames[selectedMonth.month - 1]} ${selectedMonth.year}';
+    final monthLabel = FormatUtils.monthYear(selectedMonth);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
@@ -199,7 +189,7 @@ class _Hero extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'BALANCE DEL MES',
+                  s.monthBalance,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -229,58 +219,63 @@ class _Hero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              if (!isPositive)
+          // Se reduce si el importe no cabe (montos grandes o US$).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                if (!isPositive)
+                  Text(
+                    '−',
+                    style: TextStyle(
+                      fontSize: 32,
+                      color: color,
+                      letterSpacing: -1,
+                      height: 1.4,
+                    ),
+                  ),
                 Text(
-                  '−',
+                  balMain,
+                  key: const Key('home-balance'),
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 52,
+                    fontWeight: FontWeight.w500,
                     color: color,
-                    letterSpacing: -1,
-                    height: 1.4,
+                    letterSpacing: -2.2,
+                    height: 1,
                   ),
                 ),
-              Text(
-                balMain,
-                key: const Key('home-balance'),
-                style: TextStyle(
-                  fontSize: 52,
-                  fontWeight: FontWeight.w500,
-                  color: color,
-                  letterSpacing: -2.2,
-                  height: 1,
+                Text(
+                  balDec,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                    letterSpacing: -0.8,
+                    height: 1,
+                  ),
                 ),
-              ),
-              Text(
-                balDec,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500,
-                  color: color,
-                  letterSpacing: -0.8,
-                  height: 1,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 child: _BalanceStat(
-                  label: 'Ingresos',
-                  value: _moneyCompact.format(income),
+                  label: s.income,
+                  value: FormatUtils.moneyCompact(income),
                   valueColor: AppColors.green,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _BalanceStat(
-                  label: 'Gastos',
-                  value: _moneyCompact.format(expenses),
+                  label: s.expenses,
+                  value: FormatUtils.moneyCompact(expenses),
                   valueColor: AppColors.text,
                 ),
               ),
@@ -301,13 +296,14 @@ class _MovementsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _HomeSectionHeader(
-            title: 'MOVIMIENTOS',
+            title: s.movementsHeader,
             count: moves.length,
             accent: AppColors.green,
           ),
@@ -316,7 +312,7 @@ class _MovementsSection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: Text(
-                'Sin movimientos este mes.',
+                s.noMovementsMonth,
                 style: TextStyle(fontSize: 13, color: AppColors.text3),
               ),
             )
@@ -326,8 +322,9 @@ class _MovementsSection extends StatelessWidget {
                 emoji: moves[i].emoji,
                 title: moves[i].description,
                 subtitle:
-                    '${moves[i].category.toLowerCase()} · ${moves[i].date.day} ${_monthNames[moves[i].date.month - 1].substring(0, 3)}',
-                amountLabel: _moneyCompact.format(moves[i].amount.abs()),
+                    '${moves[i].category.toLowerCase()} · '
+                    '${FormatUtils.shortDate(moves[i].date)}',
+                amountLabel: FormatUtils.moneyCompact(moves[i].amount),
                 isPositive: moves[i].amount > 0,
                 isLast: i == moves.length - 1,
               ),
