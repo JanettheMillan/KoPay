@@ -269,6 +269,24 @@ class DatabaseHelper {
     });
   }
 
+  // ── Borrado de datos (HU-28) ─────────────────────────────────
+
+  /// Tablas con datos financieros del usuario. S2-07 (tarjetas) y
+  /// S2-08 (deudas) agregan aquí su tabla para que también se borren.
+  static const List<String> financialTables = [movementsTable, incomesTable];
+
+  /// Borra todos los registros de [financialTables] en una sola
+  /// transacción: si una tabla falla, no se borra ninguna. Conserva
+  /// `settings` (categorías, moneda e idioma).
+  Future<void> deleteFinancialData() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final table in financialTables) {
+        await txn.delete(table);
+      }
+    });
+  }
+
   // ── Utilidades ───────────────────────────────────────────────
 
   /// Límites `[inicio, fin)` del mes en el mismo formato ISO que la

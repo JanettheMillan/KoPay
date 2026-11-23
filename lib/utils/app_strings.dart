@@ -5,7 +5,7 @@ import '../providers/settings_provider.dart';
 import 'format_utils.dart';
 
 /// Textos de navegación, Inicio, Movimientos y Ajustes en español e
-/// inglés (HU-25).
+/// inglés (HU-25, HU-28).
 ///
 /// `AppStrings.of(context)` devuelve los del idioma elegido en Ajustes y
 /// hace que el widget se redibuje cuando el idioma cambia.
@@ -51,6 +51,12 @@ class AppStrings {
     required this.importError,
     required this.importTooLarge,
     required this.close,
+    required this.deleteData,
+    required this.deleteDataTitle,
+    required this.deleteDataBody,
+    required this.delete,
+    required this.dataDeleted,
+    required this.deleteDataError,
   });
 
   final String navHome;
@@ -96,6 +102,14 @@ class AppStrings {
   final String importError;
   final String importTooLarge;
   final String close;
+
+  // Borrar datos (HU-28).
+  final String deleteData;
+  final String deleteDataTitle;
+  final String deleteDataBody;
+  final String delete;
+  final String dataDeleted;
+  final String deleteDataError;
 
   static const AppStrings es = AppStrings._(
     navHome: 'Inicio',
@@ -143,6 +157,15 @@ class AppStrings {
     importError: 'No se pudo importar. Tus datos no cambiaron.',
     importTooLarge: 'El archivo pesa más de 5 MB.',
     close: 'Cerrar',
+    deleteData: 'Borrar datos',
+    deleteDataTitle: '¿Borrar todos tus datos?',
+    deleteDataBody:
+        'Se eliminarán movimientos, ingresos, tarjetas y deudas de este '
+        'dispositivo. Tus categorías y ajustes se conservan. Esta acción '
+        'no se puede deshacer.',
+    delete: 'Borrar',
+    dataDeleted: 'Datos borrados',
+    deleteDataError: 'No se pudieron borrar los datos. No se borró nada.',
   );
 
   static const AppStrings en = AppStrings._(
@@ -187,6 +210,15 @@ class AppStrings {
     importError: 'Could not import. Your data did not change.',
     importTooLarge: 'The file is larger than 5 MB.',
     close: 'Close',
+    deleteData: 'Delete data',
+    deleteDataTitle: 'Delete all your data?',
+    deleteDataBody:
+        'Activity, income, cards and debts will be removed from this '
+        'device. Your categories and settings are kept. This cannot be '
+        'undone.',
+    delete: 'Delete',
+    dataDeleted: 'Data deleted',
+    deleteDataError: 'Could not delete the data. Nothing was deleted.',
   );
 
   /// Reemplaza `{a}`, `{b}`, `{c}`, `{d}` de [template] por [values].
