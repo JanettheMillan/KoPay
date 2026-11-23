@@ -37,7 +37,7 @@ App Flutter de finanzas personales. Este archivo lo leen los agentes de IA y las
 - `git push --force` en `main` o `develop`. En tu propia rama usa `--force-with-lease` solo para un rebase.
 - Co-Authored-By de herramientas de IA en los commits.
 - Subir `.env`, claves, keystores, `local.properties`, `google-services.json`, `build/`, `.dart_tool/`, `.idea/`, `backend/`.
-- Dependencias fuera del sprint. En Sprint 1 solo `provider`, `intl`, `fl_chart` y, para la persistencia local (S1-08 y S1-09), `sqflite` y `path`. Para probar la base sin emulador se permite `sqflite_common_ffi` solo como `dev_dependency`. Para el recorrido en dispositivo se permite `integration_test` (viene con el SDK de Flutter) solo como `dev_dependency`. Sin `http` ni `flutter_secure_storage`.
+- Dependencias fuera del sprint. En Sprint 1 solo `provider`, `intl`, `fl_chart` y, para la persistencia local (S1-08 y S1-09), `sqflite` y `path`. Para probar la base sin emulador se permite `sqflite_common_ffi` solo como `dev_dependency`. Para el recorrido en dispositivo se permite `integration_test` (viene con el SDK de Flutter) solo como `dev_dependency`. Sin `http` ni `flutter_secure_storage`. En Sprint 2, solo para S2-06 (exportar XLSX e importar CSV), se permiten además `excel`, `csv`, `file_picker`, `path_provider` y `share_plus`; las reglas están en `docs/criterios-respaldo-importacion-borrado.md`.
 - Usar la cuenta, el token o la sesión de otra persona.
 
 ## Squash y rebase
