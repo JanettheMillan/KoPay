@@ -16,7 +16,7 @@ import '../utils/format_utils.dart';
 import '../widgets/ui_kit.dart';
 
 /// Ajustes: moneda e idioma (HU-24, HU-25), exportar XLSX e importar
-/// CSV (HU-26, HU-27).
+/// CSV (HU-26, HU-27) y borrar datos (HU-28).
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -214,6 +214,64 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  /// Pide confirmación y borra movimientos, ingresos, tarjetas y deudas
+  /// (HU-28). Cancelar no toca nada; si el borrado falla, se avisa y la
+  /// transacción deja los datos como estaban.
+  Future<void> _deleteData(BuildContext context) async {
+    final s = AppStrings.read(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final db =
+        Provider.of<DatabaseHelper?>(context, listen: false) ??
+        DatabaseHelper.instance;
+    final movements = context.read<MovementProvider?>();
+    final incomes = context.read<IncomeProvider?>();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          s.deleteDataTitle,
+          style: TextStyle(color: AppColors.text, fontSize: 17),
+        ),
+        content: Text(
+          s.deleteDataBody,
+          style: TextStyle(color: AppColors.text2, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('delete-data-cancel'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(s.cancel),
+          ),
+          TextButton(
+            key: const Key('delete-data-confirm'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.red),
+            child: Text(s.delete),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    try {
+      await db.deleteFinancialData();
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(s.deleteDataError)));
+      return;
+    }
+    // Las listas se vuelven a leer para que Movimientos quede vacío sin
+    // reiniciar la app.
+    try {
+      await movements?.load();
+      await incomes?.load();
+    } catch (_) {
+      // Los datos ya se borraron; la siguiente carga mostrará el vacío.
+    }
+    messenger.showSnackBar(SnackBar(content: Text(s.dataDeleted)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
@@ -291,6 +349,15 @@ class SettingsScreen extends StatelessWidget {
                     value: 'CSV',
                     onTap: () => _import(context),
                   ),
+                  Divider(height: 1, indent: 56, color: AppColors.hair),
+                  _SettingRow(
+                    key: const Key('settings-delete-data'),
+                    icon: Icons.delete_outline_rounded,
+                    label: s.deleteData,
+                    value: '',
+                    color: AppColors.red,
+                    onTap: () => _deleteData(context),
+                  ),
                 ],
               ),
             ),
@@ -330,12 +397,17 @@ class _SettingRow extends StatelessWidget {
   final String value;
   final VoidCallback onTap;
 
+  /// Color de icono y nombre para acciones, por ejemplo la destructiva
+  /// en rojo.
+  final Color? color;
+
   const _SettingRow({
     super.key,
     required this.icon,
     required this.label,
     required this.value,
     required this.onTap,
+    this.color,
   });
 
   @override
@@ -348,7 +420,7 @@ class _SettingRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
-              Icon(icon, color: AppColors.text2, size: 22),
+              Icon(icon, color: color ?? AppColors.text2, size: 22),
               const SizedBox(width: 18),
               // Flexible: en pantallas angostas o con letra grande el
               // nombre se recorta en vez de desbordar la fila.
@@ -357,7 +429,10 @@ class _SettingRow extends StatelessWidget {
                 child: Text(
                   label,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 15, color: AppColors.text),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: color ?? AppColors.text,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
