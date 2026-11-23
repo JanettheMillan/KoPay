@@ -6,8 +6,11 @@ import 'package:provider/provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/income_provider.dart';
 import 'providers/movement_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/movements_screen.dart';
+import 'screens/settings_screen.dart';
+import 'utils/app_strings.dart';
 import 'utils/app_colors.dart';
 import 'widgets/add_income_sheet.dart';
 import 'widgets/add_movement_sheet.dart';
@@ -27,6 +30,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => MovementProvider()..load()),
         ChangeNotifierProvider(create: (_) => IncomeProvider()..load()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()..load()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()..load()),
       ],
       child: const KopayApp(),
     ),
@@ -154,12 +158,13 @@ class _MainShellState extends State<MainShell> {
   static const _pages = <Widget>[
     HomeScreen(),
     MovementsScreen(),
-    _PlaceholderPage(title: 'Ajustes', icon: Icons.settings_outlined),
+    SettingsScreen(),
   ];
 
   /// El botón + pregunta qué registrar y abre el formulario elegido.
   Future<void> _add() async {
     final messenger = ScaffoldMessenger.of(context);
+    final s = AppStrings.read(context);
     final choice = await showKopaySheet<String>(context, const _AddChooser());
     if (!mounted || choice == null) return;
 
@@ -167,11 +172,11 @@ class _MainShellState extends State<MainShell> {
     if (choice == 'movement') {
       final saved = await showAddMovementSheet(context);
       if (saved != null) {
-        message = saved.isExpense ? 'Gasto guardado' : 'Entrada guardada';
+        message = saved.isExpense ? s.expenseSaved : s.entrySaved;
       }
     } else {
       final saved = await showAddIncomeSheet(context);
-      if (saved != null) message = 'Ingreso guardado';
+      if (saved != null) message = s.incomeSaved;
     }
     if (message != null) {
       messenger.showSnackBar(SnackBar(content: Text(message)));
@@ -180,6 +185,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppColors.systemOverlay,
       child: Scaffold(
@@ -189,7 +195,7 @@ class _MainShellState extends State<MainShell> {
             ? null
             : FloatingActionButton(
                 key: const Key('add-button'),
-                tooltip: 'Agregar',
+                tooltip: s.add,
                 backgroundColor: AppColors.green,
                 foregroundColor: const Color(0xFF001A13),
                 onPressed: _add,
@@ -202,17 +208,17 @@ class _MainShellState extends State<MainShell> {
             NavigationDestination(
               icon: Icon(Icons.home_outlined, color: AppColors.text3),
               selectedIcon: Icon(Icons.home_rounded, color: AppColors.green),
-              label: 'Inicio',
+              label: s.navHome,
             ),
             NavigationDestination(
               icon: Icon(Icons.receipt_long_outlined, color: AppColors.text3),
               selectedIcon: Icon(Icons.receipt_long, color: AppColors.green),
-              label: 'Movimientos',
+              label: s.navMovements,
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined, color: AppColors.text3),
               selectedIcon: Icon(Icons.settings, color: AppColors.green),
-              label: 'Ajustes',
+              label: s.navSettings,
             ),
           ],
         ),
@@ -227,6 +233,7 @@ class _AddChooser extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     Widget option(String value, String emoji, String title, String subtitle) {
       // Material propio: el fondo de la hoja taparía el efecto al tocar.
       return Material(
@@ -252,44 +259,12 @@ class _AddChooser extends StatelessWidget {
     }
 
     return KopaySheet(
-      title: '¿Qué quieres registrar?',
+      title: s.addTitle,
       child: Column(
         children: [
-          option('movement', '🧾', 'Gasto o movimiento', 'Compras, pagos'),
-          option('income', '💼', 'Ingreso', 'Salario, bonos, ventas'),
+          option('movement', '🧾', s.addMovement, s.addMovementHint),
+          option('income', '💼', s.addIncome, s.addIncomeHint),
         ],
-      ),
-    );
-  }
-}
-
-/// Pantalla provisional hasta que se implemente cada sección.
-class _PlaceholderPage extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PlaceholderPage({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: AppColors.text3, size: 40),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: AppColors.text,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

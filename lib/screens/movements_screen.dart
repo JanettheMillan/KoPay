@@ -7,6 +7,7 @@ import '../models/movement_model.dart';
 import '../providers/income_provider.dart';
 import '../providers/movement_provider.dart';
 import '../utils/app_colors.dart';
+import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
 import '../widgets/add_income_sheet.dart';
 import '../widgets/add_movement_sheet.dart';
@@ -70,6 +71,7 @@ class MovementsScreen extends StatelessWidget {
         (movements.isLoading || incomes.isLoading) &&
         !(movements.isLoaded && incomes.isLoaded);
     final history = buildHistory(movements.movements, incomes.incomes);
+    final s = AppStrings.of(context);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppColors.systemOverlay,
@@ -89,7 +91,7 @@ class MovementsScreen extends StatelessWidget {
                   8,
                 ),
                 child: Text(
-                  'Movimientos',
+                  s.navMovements,
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w600,
@@ -111,7 +113,7 @@ class MovementsScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Text(
-                      'Aún no hay movimientos.\nToca + para registrar uno.',
+                      s.emptyHistory,
                       key: const Key('history-empty'),
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 14, color: AppColors.text3),
@@ -162,6 +164,7 @@ class _MonthHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppStrings.of(context); // se redibuja al cambiar el idioma
     return Padding(
       padding: const EdgeInsets.only(top: 20, bottom: 2),
       child: Text(
@@ -191,7 +194,9 @@ class _HistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final m = entry.asMovement;
-    final kind = entry.isIncome ? 'ingreso' : m.category.toLowerCase();
+    final kind = entry.isIncome
+        ? AppStrings.of(context).incomeKind
+        : m.category.toLowerCase();
     return MoveRow(
       key: Key('history-${entry.isIncome ? 'income' : 'movement'}-${m.id}'),
       emoji: entry.isIncome ? '💼' : categoryEmoji(m.category),
