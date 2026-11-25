@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../database/database_helper.dart';
+import '../providers/card_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/income_provider.dart';
 import '../providers/movement_provider.dart';
@@ -225,6 +226,7 @@ class SettingsScreen extends StatelessWidget {
         DatabaseHelper.instance;
     final movements = context.read<MovementProvider?>();
     final incomes = context.read<IncomeProvider?>();
+    final cards = context.read<CardProvider?>();
 
     final ok = await showDialog<bool>(
       context: context,
@@ -266,6 +268,7 @@ class SettingsScreen extends StatelessWidget {
     try {
       await movements?.load();
       await incomes?.load();
+      await cards?.load();
     } catch (_) {
       // Los datos ya se borraron; la siguiente carga mostrará el vacío.
     }

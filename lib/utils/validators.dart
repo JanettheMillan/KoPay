@@ -1,3 +1,4 @@
+import '../models/card_model.dart';
 import '../models/income_model.dart';
 import '../models/movement_model.dart';
 
@@ -11,7 +12,7 @@ class ValidationException implements Exception {
   String toString() => 'ValidationException: $message';
 }
 
-/// Reglas de validación de gastos, movimientos e ingresos.
+/// Reglas de validación de gastos, movimientos, ingresos y tarjetas.
 ///
 /// Los formularios usan los métodos que reciben texto para mostrar el
 /// error bajo cada campo. Los providers usan [checkMovement] y
@@ -31,6 +32,10 @@ class Validators {
   static const String emptyDescription = 'Escribe una descripción';
   static const String emptyName = 'Escribe el nombre del ingreso';
   static const String emptyCategory = 'Elige una categoría';
+  static const String emptyCardName = 'Escribe el nombre de la tarjeta';
+  static const String emptyBank = 'Escribe el banco';
+  static const String negativeAmount = 'El monto no puede ser negativo';
+  static const String invalidDay = 'Elige un día entre 1 y 31';
 
   // Dígitos y, opcionalmente, punto decimal y más dígitos. Se aplica
   // después de quitar comas de miles; los decimales se cuentan aparte.
@@ -94,4 +99,32 @@ class Validators {
     if (income.amount > maxAmount) return tooLarge;
     return incomeName(income.name);
   }
+
+  /// Primer error de una tarjeta ya construida, o `null` si es válida.
+  ///
+  /// El límite debe ser mayor que cero. El saldo usado y el pago mínimo
+  /// pueden ser cero, pero no negativos. Los días van de 1 a 31.
+  static String? checkCard(CardModel card) {
+    if (!_required(card.name)) return emptyCardName;
+    if (!_required(card.bank)) return emptyBank;
+    if (!card.creditLimit.isFinite || card.creditLimit <= 0) {
+      return notPositive;
+    }
+    for (final value in [card.usedBalance, card.minimumPayment]) {
+      if (!value.isFinite || value < 0) return negativeAmount;
+    }
+    for (final value in [
+      card.creditLimit,
+      card.usedBalance,
+      card.minimumPayment,
+    ]) {
+      if (value > maxAmount) return tooLarge;
+    }
+    if (!_validDay(card.cutDay) || !_validDay(card.paymentDay)) {
+      return invalidDay;
+    }
+    return null;
+  }
+
+  static bool _validDay(int day) => day >= 1 && day <= 31;
 }
