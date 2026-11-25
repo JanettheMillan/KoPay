@@ -881,7 +881,7 @@ Los casos que encontraron un defecto o que dependen de algo que todavía no exis
 
 | Id | Severidad | Defecto | Dónde | Propuesta |
 | :--- | :--- | :--- | :--- | :--- |
-| D-01 | Baja | `categoryEmoji` no ignora espacios ni mayúsculas y no tiene emoji para `Ingreso`. Una categoría escrita distinto se ve con el icono genérico. | `lib/widgets/category_picker_sheet.dart` | Normalizar con `trim()` y comparar sin mayúsculas; agregar `Ingreso` (💼, que ya usa el historial). |
+| D-01 | Baja | `categoryEmoji` no ignora espacios ni mayúsculas y no tiene emoji para `Ingreso`. Una categoría escrita distinto se ve con el icono genérico. | `lib/widgets/category_picker_sheet.dart` | **Corregido** en S2-04 ([#140](https://github.com/JanettheMillan/KoPay/pull/140)). Verificado en la sección 8.4 ([#132](https://github.com/JanettheMillan/KoPay/issues/132)). |
 | D-02 | Baja | El plan (UT-03) espera un campo de tipo `legacy_income`, pero el modelo distingue los ingresos por la categoría `Ingreso` y el historial por `HistoryEntry.isIncome`. | `docs/plan-de-pruebas.md` o `lib/models/` | Decidir en equipo si se actualiza el caso del plan o se agrega el campo al modelo. |
 | D-03 | Media | `Movement.fromMap` e `Income.fromMap` aceptan fechas imposibles y las convierten en otra fecha sin avisar. Un dato corrupto o importado por CSV (HU-27) quedaría en otro mes. | `lib/models/movement_model.dart`, `lib/models/income_model.dart` | Validar que la fecha leída coincida con el texto, por ejemplo comparando año, mes y día después de `DateTime.parse`, y rechazar si no coincide. |
 
@@ -982,6 +982,28 @@ La primera verificación que falla es la de ingresos; las de gastos, balance y f
 | D-05 | Alta | Inicio muestra datos de ejemplo fijos (`_sampleMoves()` de S1-06) y no escucha `MovementProvider` ni `IncomeProvider`. El resumen del mes y sus movimientos no reflejan lo que el usuario guarda. Bloquea HU-01, HU-02 y HU-09 ("aparece en Inicio; el saldo del mes se actualiza"). | `lib/screens/home_screen.dart` | Leer movimientos e ingresos de los providers (`forMonth`, `expensesForMonth`, `entriesForMonth`, `totalForMonth`), quitar los datos de ejemplo y mostrar un estado vacío. Al corregirlo, volver a ejecutar este caso; la prueba ya verifica `$500`, `$50` y `$450.00`. |
 
 ---
+
+### 8.4 Reejecución de UT-20 tras corregir D-01
+
+| Campo | Valor |
+| :--- | :--- |
+| Tarjeta | D-01 · [#132](https://github.com/JanettheMillan/KoPay/issues/132) |
+| Fecha | 2026-11-24 |
+| Responsable | `JanettheMillan` |
+| Versión | `develop` en `b18a57a` |
+| Entorno | Flutter 3.47.6 (stable), macOS, `flutter test` sin dispositivo |
+| Archivo | `test/unit_models_formats_test.dart` (grupo 4.1 Categorías) |
+| Comando | `flutter test test/unit_models_formats_test.dart --plain-name "UT-2" -r expanded` |
+| Salida | `00:00 +4: All tests passed!` (UT-20 en sus dos pruebas, UT-21 y UT-29) |
+
+La corrección llegó con S2-04 ([#140](https://github.com/JanettheMillan/KoPay/pull/140)). `categoryEmoji` ahora quita espacios, compara sin mayúsculas, reconoce la palabra clave dentro del texto e incluye `ingreso` → 💼. En el mismo PR se quitó el `skip` de UT-20. El resultado de la sección 8.1 se conserva como registro de la primera ejecución.
+
+| Caso | Resultado | Observado |
+| :--- | :--- | :--- |
+| UT-20 · Emoji de categoría conocida | **Aprobado** | `Comida` → 🛒 y `Transporte` → 🚌. `' comida '` → 🛒, `TRANSPORTE` → 🚌 e `Ingreso` → 💼. |
+| UT-21 · Emoji de categoría desconocida | **Aprobado** | `Mascotas` → 🏷️. La corrección no cambió el icono genérico. |
+
+**Resumen:** UT-20 pasa de Fallido a Aprobado. D-01 queda cerrado.
 
 ## 9. Alineación con el Manual de Estilo
 
