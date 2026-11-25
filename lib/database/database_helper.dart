@@ -424,7 +424,10 @@ class DatabaseHelper {
         throw ArgumentError.value(cardId, 'cardId', 'La tarjeta no existe');
       }
       final card = CardModel.fromMap(rows.first);
-      if (amount > card.usedBalance) {
+      // En centavos enteros: con double, 0.30 - 0.10 da 0.1999… (D-06).
+      final paid = _cents(amount);
+      final used = _cents(card.usedBalance);
+      if (paid > used) {
         throw ArgumentError.value(
           amount,
           'amount',
@@ -433,7 +436,7 @@ class DatabaseHelper {
       }
 
       final payment = Movement(
-        amount: -amount,
+        amount: -paid / 100,
         description: 'Pago ${card.name}',
         category: paymentCategory,
         date: date,
@@ -447,7 +450,7 @@ class DatabaseHelper {
       );
       await txn.update(
         cardsTable,
-        {'used_balance': card.usedBalance - amount},
+        {'used_balance': (used - paid) / 100},
         where: 'id = ?',
         whereArgs: [cardId],
       );
@@ -482,7 +485,9 @@ class DatabaseHelper {
         throw ArgumentError.value(debtId, 'debtId', 'La deuda no existe');
       }
       final debt = DebtModel.fromMap(rows.first);
-      if (amount > debt.remainingBalance) {
+      final paid = _cents(amount);
+      final balance = _cents(debt.remainingBalance);
+      if (paid > balance) {
         throw ArgumentError.value(
           amount,
           'amount',
@@ -491,7 +496,7 @@ class DatabaseHelper {
       }
 
       final payment = Movement(
-        amount: -amount,
+        amount: -paid / 100,
         description: 'Pago ${debt.name}',
         category: paymentCategory,
         date: date,
@@ -503,11 +508,11 @@ class DatabaseHelper {
         movementsTable,
         payment.toMap()..remove('id'),
       );
-      final remaining = debt.remainingBalance - amount;
+      final remaining = balance - paid;
       await txn.update(
         debtsTable,
         {
-          'remaining_balance': remaining,
+          'remaining_balance': remaining / 100,
           if (remaining == 0) 'status': DebtStatus.paid.name,
         },
         where: 'id = ?',
@@ -617,8 +622,13 @@ class DatabaseHelper {
     return [start.toIso8601String(), end.toIso8601String()];
   }
 
+  /// Importe en centavos enteros, para sumar y comparar sin el error de
+  /// redondeo de `double` (D-06).
+  static int _cents(double amount) => (amount * 100).round();
+
+  /// Rechaza importes que no llegan a un centavo.
   static void _requirePositive(double amount) {
-    if (amount <= 0) {
+    if (!amount.isFinite || _cents(amount) <= 0) {
       throw ArgumentError.value(amount, 'amount', 'Debe ser mayor que cero');
     }
   }

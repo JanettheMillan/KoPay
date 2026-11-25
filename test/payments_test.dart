@@ -258,5 +258,71 @@ void main() {
       expect(pagos, [pago]);
       expect(leida!.usedBalance, 100);
     });
+
+    test('PAG-09 · D-06 · HU-16 · HU-21 · Los pagos con centavos liquidan '
+        'el saldo exacto', () async {
+      // Deuda 0.30: 0.10 y luego 0.20. Con double quedaba 0.1999… y el
+      // segundo pago se rechazaba.
+      final chica = await helper.insertDebt(
+        auto.copyWith(monthlyPayment: 0.1, remainingBalance: 0.3),
+      );
+      await helper.insertDebtPayment(debtId: chica.id!, amount: 0.1, date: hoy);
+      expect((await helper.getDebt(chica.id!))!.remainingBalance, 0.2);
+      await helper.insertDebtPayment(debtId: chica.id!, amount: 0.2, date: hoy);
+      final liquidada = (await helper.getDebt(chica.id!))!;
+      expect(liquidada.remainingBalance, 0);
+      expect(liquidada.isPaid, isTrue);
+
+      // Deuda 1.00: 0.70 + 0.10 + 0.20. Con double quedaba 2.7e-17 y
+      // pendiente.
+      final peso = await helper.insertDebt(
+        auto.copyWith(monthlyPayment: 1, remainingBalance: 1),
+      );
+      for (final abono in [0.7, 0.1, 0.2]) {
+        await helper.insertDebtPayment(
+          debtId: peso.id!,
+          amount: abono,
+          date: hoy,
+        );
+      }
+      final pagada = (await helper.getDebt(peso.id!))!;
+      expect(pagada.remainingBalance, 0);
+      expect(pagada.status, DebtStatus.paid);
+
+      // Tarjeta con 0.30 usado: 0.10 y luego 0.20.
+      final tarjeta = await helper.insertCard(oro.copyWith(usedBalance: 0.3));
+      await helper.insertCardPayment(
+        cardId: tarjeta.id!,
+        amount: 0.1,
+        date: hoy,
+      );
+      final pago = await helper.insertCardPayment(
+        cardId: tarjeta.id!,
+        amount: 0.2,
+        date: hoy,
+      );
+      expect(pago.amount, -0.2);
+      expect((await helper.getCard(tarjeta.id!))!.usedBalance, 0);
+
+      // Un centavo de más sigue rechazado y menos de un centavo no es pago.
+      final otra = await helper.insertCard(oro.copyWith(usedBalance: 10));
+      expect(
+        () => helper.insertCardPayment(
+          cardId: otra.id!,
+          amount: 10.01,
+          date: hoy,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => helper.insertCardPayment(
+          cardId: otra.id!,
+          amount: 0.004,
+          date: hoy,
+        ),
+        throwsArgumentError,
+      );
+      expect((await helper.getCard(otra.id!))!.usedBalance, 10);
+    });
   });
 }
