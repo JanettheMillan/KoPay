@@ -979,7 +979,7 @@ La primera verificación que falla es la de ingresos; las de gastos, balance y f
 
 | Id | Severidad | Defecto | Dónde | Propuesta |
 | :--- | :--- | :--- | :--- | :--- |
-| D-05 | Alta | Inicio muestra datos de ejemplo fijos (`_sampleMoves()` de S1-06) y no escucha `MovementProvider` ni `IncomeProvider`. El resumen del mes y sus movimientos no reflejan lo que el usuario guarda. Bloquea HU-01, HU-02 y HU-09 ("aparece en Inicio; el saldo del mes se actualiza"). | `lib/screens/home_screen.dart` | Leer movimientos e ingresos de los providers (`forMonth`, `expensesForMonth`, `entriesForMonth`, `totalForMonth`), quitar los datos de ejemplo y mostrar un estado vacío. Al corregirlo, volver a ejecutar este caso; la prueba ya verifica `$500`, `$50` y `$450.00`. |
+| D-05 | Alta | Inicio muestra datos de ejemplo fijos (`_sampleMoves()` de S1-06) y no escucha `MovementProvider` ni `IncomeProvider`. El resumen del mes y sus movimientos no reflejan lo que el usuario guarda. Bloquea HU-01, HU-02 y HU-09 ("aparece en Inicio; el saldo del mes se actualiza"). | `lib/screens/home_screen.dart` | **Corregido** en [#131](https://github.com/JanettheMillan/KoPay/issues/131): Inicio lee `MovementProvider` e `IncomeProvider`. Reejecución en la sección 8.5. |
 
 ---
 
@@ -1004,6 +1004,35 @@ La corrección llegó con S2-04 ([#140](https://github.com/JanettheMillan/KoPay/
 | UT-21 · Emoji de categoría desconocida | **Aprobado** | `Mascotas` → 🏷️. La corrección no cambió el icono genérico. |
 
 **Resumen:** UT-20 pasa de Fallido a Aprobado. D-01 queda cerrado.
+
+### 8.5 Reejecución de INT-01 tras corregir D-05
+
+| Campo | Valor |
+| :--- | :--- |
+| Tarjeta | D-05 · [#131](https://github.com/JanettheMillan/KoPay/issues/131), dentro de S2-01 · [#33](https://github.com/JanettheMillan/KoPay/issues/33) |
+| Fecha y hora | 2026-11-24 18:44 |
+| Responsable | `RuAbogado` |
+| Versión | rama `fix/d-05-inicio-providers` sobre `develop` en `13d652a` |
+| Entorno | Flutter 3.47.4 (stable), macOS 27.2.1 (darwin-arm64), app de escritorio en debug, 390 × 844 pt, SQLite real |
+| Datos usados | Los mismos de 8.3: base vacía, gasto "Prueba café" de 50 en Comida e ingreso "Nómina" de 500, con fecha de hoy |
+| Comando | `flutter test integration_test/s1_18_flujo_completo_test.dart -d macos` |
+| Salida | `ANTES={balance: $0.00, ingresos: $0, gastos: $0}` · `DESPUES={balance: $450.00, ingresos: $500, gastos: $50}` · `INICIO={Prueba café: true, Nómina: true}` · `00:07 +1: All tests passed!` |
+
+| Caso | Resultado | Observado |
+| :--- | :--- | :--- |
+| INT-01 · Registrar gasto y actualizar resumen | **Aprobado** | Con la base vacía, Inicio muestra `$0.00` y "Sin movimientos este mes.". Después de guardar, muestra ingresos `$500`, gastos `$50`, balance `$450.00` y las filas "Prueba café" y "Nómina". Movimientos sigue correcto. |
+
+Evidencia: [1-inicio-antes](evidencias/d-05/1-inicio-antes.png) · [2-gasto-guardado](evidencias/d-05/2-gasto-guardado.png) · [4-movimientos](evidencias/d-05/4-movimientos.png) · [5-inicio-despues](evidencias/d-05/5-inicio-despues.png).
+
+Pruebas nuevas que no están en el plan, en `test/home_screen_test.dart`:
+
+| Caso | Resultado | Qué verifica |
+| :--- | :--- | :--- |
+| HOME-01 · D-05 | **Aprobado** | Con la base vacía no aparecen los datos de ejemplo ("Salario") y los totales están en cero. |
+| HOME-02 · HU-09 | **Aprobado** | Solo se muestran los registros del mes elegido; el balance suma ingresos y entradas y resta gastos (`$11,849.50`). Al ir al mes anterior se ve solo ese mes (`−$999.00`). |
+| HOME-03 · HU-01 · HU-02 | **Aprobado** | Guardar un gasto y un ingreso desde los providers actualiza Inicio sin reabrir (`$500`, `$50`, `$450.00`). |
+
+**Resumen:** INT-01 pasa de Fallido a Aprobado. D-05 queda cerrado. El resultado de 8.3 se conserva como registro de la primera ejecución.
 
 ## 9. Alineación con el Manual de Estilo
 

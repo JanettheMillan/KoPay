@@ -1,46 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/income_provider.dart';
+import '../providers/movement_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
+import '../widgets/category_picker_sheet.dart';
 import '../widgets/move_row.dart';
+import 'movements_screen.dart' show HistoryEntry, buildHistory;
 
-/// Movimiento de ejemplo mientras no hay modelos ni base de datos.
-class _SampleMove {
-  final String emoji;
-  final String description;
-  final String category;
-  final double amount; // positivo = ingreso, negativo = gasto
-  final DateTime date;
-
-  const _SampleMove(
-    this.emoji,
-    this.description,
-    this.category,
-    this.amount,
-    this.date,
-  );
-}
-
-/// Datos fijos para el mes actual y el anterior.
-List<_SampleMove> _sampleMoves() {
-  final now = DateTime.now();
-  DateTime day(int monthOffset, int d) =>
-      DateTime(now.year, now.month + monthOffset, d);
-
-  return [
-    _SampleMove('💼', 'Salario', 'Ingreso', 12000, day(0, 1)),
-    _SampleMove('🛒', 'Súper', 'Comida', -1350.50, day(0, 3)),
-    _SampleMove('🚌', 'Transporte', 'Transporte', -280, day(0, 4)),
-    _SampleMove('🎬', 'Cine', 'Entretenimiento', -320, day(0, 6)),
-    _SampleMove('💡', 'Luz', 'Servicios', -540, day(0, 8)),
-    _SampleMove('💼', 'Salario', 'Ingreso', 12000, day(-1, 1)),
-    _SampleMove('🏠', 'Renta', 'Vivienda', -4500, day(-1, 2)),
-    _SampleMove('🛒', 'Súper', 'Comida', -1890, day(-1, 10)),
-  ];
-}
-
+/// Inicio: balance, ingresos, gastos y movimientos del mes elegido.
+///
+/// Lee [MovementProvider] e [IncomeProvider], así que se actualiza en
+/// cuanto se guarda, edita, importa o borra un registro (D-05).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -50,7 +24,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late DateTime _selectedMonth;
-  final List<_SampleMove> _moves = _sampleMoves();
 
   @override
   void initState() {
@@ -70,22 +43,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final monthMoves =
-        _moves
-            .where(
-              (m) =>
-                  m.date.year == _selectedMonth.year &&
-                  m.date.month == _selectedMonth.month,
-            )
-            .toList()
-          ..sort((a, b) => b.date.compareTo(a.date));
+    final movements = context.watch<MovementProvider>();
+    final incomes = context.watch<IncomeProvider>();
+    final month = _selectedMonth;
 
-    final income = monthMoves
-        .where((m) => m.amount > 0)
-        .fold(0.0, (s, m) => s + m.amount);
-    final expenses = monthMoves
-        .where((m) => m.amount < 0)
-        .fold(0.0, (s, m) => s + m.amount.abs());
+    final monthMoves = buildHistory(
+      movements.forMonth(month),
+      incomes.forMonth(month),
+    );
+    // Ingresos del mes más las entradas (movimientos positivos), igual
+    // que el historial; los gastos van en positivo.
+    final income =
+        incomes.totalForMonth(month) + movements.entriesForMonth(month);
+    final expenses = movements.expensesForMonth(month);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppColors.systemOverlay,
@@ -290,7 +260,7 @@ class _Hero extends StatelessWidget {
 // ── Movimientos del mes ────────────────────────────────────────
 
 class _MovementsSection extends StatelessWidget {
-  final List<_SampleMove> moves;
+  final List<HistoryEntry> moves;
 
   const _MovementsSection({required this.moves});
 
@@ -318,20 +288,32 @@ class _MovementsSection extends StatelessWidget {
             )
           else
             for (var i = 0; i < moves.length; i++)
-              MoveRow(
-                emoji: moves[i].emoji,
-                title: moves[i].description,
-                subtitle:
-                    '${moves[i].category.toLowerCase()} · '
-                    '${FormatUtils.shortDate(moves[i].date)}',
-                amountLabel: FormatUtils.moneyCompact(moves[i].amount),
-                isPositive: moves[i].amount > 0,
-                isLast: i == moves.length - 1,
-              ),
+              _homeRow(context, moves[i], isLast: i == moves.length - 1),
         ],
       ),
     );
   }
+}
+
+/// Fila de Inicio con el mismo emoji y subtítulo que el historial.
+Widget _homeRow(
+  BuildContext context,
+  HistoryEntry entry, {
+  required bool isLast,
+}) {
+  final m = entry.asMovement;
+  final kind = entry.isIncome
+      ? AppStrings.of(context).incomeKind
+      : m.category.toLowerCase();
+  return MoveRow(
+    key: Key('home-${entry.isIncome ? 'income' : 'movement'}-${m.id}'),
+    emoji: entry.isIncome ? '💼' : categoryEmoji(m.category),
+    title: m.description,
+    subtitle: '$kind · ${FormatUtils.shortDate(m.date)}',
+    amountLabel: FormatUtils.moneyCompact(m.amount),
+    isPositive: !m.isExpense,
+    isLast: isLast,
+  );
 }
 
 class _HomeSectionHeader extends StatelessWidget {
