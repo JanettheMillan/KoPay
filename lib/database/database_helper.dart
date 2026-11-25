@@ -20,13 +20,17 @@ class DatabaseHelper {
   /// 1: movimientos, ingresos y ajustes (S1-08).
   /// 2: tarjetas (S2-07).
   /// 3: deudas (S2-08).
-  static const int version = 3;
+  /// 4: pagos asociados a tarjetas y deudas en `movements` (S2-09).
+  static const int version = 4;
 
   static const String movementsTable = 'movements';
   static const String incomesTable = 'incomes';
   static const String settingsTable = 'settings';
   static const String cardsTable = 'cards';
   static const String debtsTable = 'debts';
+
+  /// Categoría con la que se guardan los pagos de tarjeta y de deuda.
+  static const String paymentCategory = 'Pago';
 
   /// Ajustes con los que arranca una instalación nueva.
   static const Map<String, String> defaultSettings = {
@@ -95,6 +99,7 @@ class DatabaseHelper {
       )
     ''');
     batch.execute('CREATE INDEX idx_movements_date ON $movementsTable (date)');
+    _addPaymentColumns(batch);
 
     batch.execute('''
       CREATE TABLE $incomesTable (
@@ -132,6 +137,7 @@ class DatabaseHelper {
     final batch = db.batch();
     if (oldVersion < 2) _createCardsTable(batch);
     if (oldVersion < 3) _createDebtsTable(batch);
+    if (oldVersion < 4) _addPaymentColumns(batch);
     await batch.commit(noResult: true);
   }
 
@@ -167,6 +173,23 @@ class DatabaseHelper {
       )
     ''');
     batch.execute('CREATE INDEX idx_debts_due_date ON $debtsTable (due_date)');
+  }
+
+  /// Columnas de `movements` que asocian un pago con su tarjeta o deuda
+  /// (S2-09). Los movimientos que ya existían quedan como `regular`.
+  static void _addPaymentColumns(Batch batch) {
+    batch.execute(
+      "ALTER TABLE $movementsTable ADD COLUMN type TEXT NOT NULL "
+      "DEFAULT 'regular' CHECK (type IN ('regular', 'payment'))",
+    );
+    batch.execute('ALTER TABLE $movementsTable ADD COLUMN card_id INTEGER');
+    batch.execute('ALTER TABLE $movementsTable ADD COLUMN debt_id INTEGER');
+    batch.execute(
+      'CREATE INDEX idx_movements_card ON $movementsTable (card_id)',
+    );
+    batch.execute(
+      'CREATE INDEX idx_movements_debt ON $movementsTable (debt_id)',
+    );
   }
 
   // ── Movimientos ──────────────────────────────────────────────
@@ -373,6 +396,148 @@ class DatabaseHelper {
     return db.delete(debtsTable, where: 'id = ?', whereArgs: [id]);
   }
 
+  // ── Pagos (S2-09) ────────────────────────────────────────────
+
+  /// Registra un pago de [amount] a la tarjeta [cardId] (HU-16): guarda
+  /// un movimiento de tipo `payment` asociado a la tarjeta y descuenta el
+  /// importe de su saldo usado, todo en una sola transacción.
+  ///
+  /// Lanza [ArgumentError] si el importe no es positivo, si la tarjeta no
+  /// existe o si el pago supera el saldo usado. En ese caso no cambia
+  /// nada.
+  Future<Movement> insertCardPayment({
+    required int cardId,
+    required double amount,
+    required DateTime date,
+    String? note,
+  }) async {
+    _requirePositive(amount);
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query(
+        cardsTable,
+        where: 'id = ?',
+        whereArgs: [cardId],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        throw ArgumentError.value(cardId, 'cardId', 'La tarjeta no existe');
+      }
+      final card = CardModel.fromMap(rows.first);
+      if (amount > card.usedBalance) {
+        throw ArgumentError.value(
+          amount,
+          'amount',
+          'El pago supera el saldo usado de la tarjeta',
+        );
+      }
+
+      final payment = Movement(
+        amount: -amount,
+        description: 'Pago ${card.name}',
+        category: paymentCategory,
+        date: date,
+        note: note,
+        type: MovementType.payment,
+        cardId: cardId,
+      );
+      final id = await txn.insert(
+        movementsTable,
+        payment.toMap()..remove('id'),
+      );
+      await txn.update(
+        cardsTable,
+        {'used_balance': card.usedBalance - amount},
+        where: 'id = ?',
+        whereArgs: [cardId],
+      );
+      return payment.copyWith(id: id);
+    });
+  }
+
+  /// Registra un pago de [amount] a la deuda [debtId] (HU-20): guarda un
+  /// movimiento de tipo `payment` asociado a la deuda y descuenta el
+  /// importe del saldo restante, todo en una sola transacción. Si el
+  /// saldo llega a cero, la deuda pasa a pagada (HU-21).
+  ///
+  /// Lanza [ArgumentError] si el importe no es positivo, si la deuda no
+  /// existe o si el pago supera el saldo restante. En ese caso no cambia
+  /// nada.
+  Future<Movement> insertDebtPayment({
+    required int debtId,
+    required double amount,
+    required DateTime date,
+    String? note,
+  }) async {
+    _requirePositive(amount);
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query(
+        debtsTable,
+        where: 'id = ?',
+        whereArgs: [debtId],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        throw ArgumentError.value(debtId, 'debtId', 'La deuda no existe');
+      }
+      final debt = DebtModel.fromMap(rows.first);
+      if (amount > debt.remainingBalance) {
+        throw ArgumentError.value(
+          amount,
+          'amount',
+          'El pago supera el saldo restante de la deuda',
+        );
+      }
+
+      final payment = Movement(
+        amount: -amount,
+        description: 'Pago ${debt.name}',
+        category: paymentCategory,
+        date: date,
+        note: note,
+        type: MovementType.payment,
+        debtId: debtId,
+      );
+      final id = await txn.insert(
+        movementsTable,
+        payment.toMap()..remove('id'),
+      );
+      final remaining = debt.remainingBalance - amount;
+      await txn.update(
+        debtsTable,
+        {
+          'remaining_balance': remaining,
+          if (remaining == 0) 'status': DebtStatus.paid.name,
+        },
+        where: 'id = ?',
+        whereArgs: [debtId],
+      );
+      return payment.copyWith(id: id);
+    });
+  }
+
+  /// Pagos asociados a la tarjeta [cardId], del más reciente al más
+  /// antiguo.
+  Future<List<Movement>> getCardPayments(int cardId) =>
+      _payments('card_id', cardId);
+
+  /// Pagos asociados a la deuda [debtId], del más reciente al más
+  /// antiguo.
+  Future<List<Movement>> getDebtPayments(int debtId) =>
+      _payments('debt_id', debtId);
+
+  Future<List<Movement>> _payments(String column, int id) async {
+    final db = await database;
+    final rows = await db.query(
+      movementsTable,
+      where: "type = 'payment' AND $column = ?",
+      whereArgs: [id],
+      orderBy: 'date DESC, id DESC',
+    );
+    return rows.map(Movement.fromMap).toList();
+  }
+
   // ── Ajustes ──────────────────────────────────────────────────
 
   /// Valor guardado en `settings` para [key], o `null` si no existe.
@@ -450,6 +615,12 @@ class DatabaseHelper {
     final start = DateTime(month.year, month.month);
     final end = DateTime(month.year, month.month + 1);
     return [start.toIso8601String(), end.toIso8601String()];
+  }
+
+  static void _requirePositive(double amount) {
+    if (amount <= 0) {
+      throw ArgumentError.value(amount, 'amount', 'Debe ser mayor que cero');
+    }
   }
 
   static int _requireId(int? id) {

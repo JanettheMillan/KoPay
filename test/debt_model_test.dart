@@ -156,6 +156,11 @@ void main() {
             version: 2,
             onCreate: (db, _) async {
               await db.execute(
+                'CREATE TABLE movements (id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'amount REAL NOT NULL, description TEXT NOT NULL, '
+                'category TEXT NOT NULL, date TEXT NOT NULL, note TEXT)',
+              );
+              await db.execute(
                 'CREATE TABLE cards (id INTEGER PRIMARY KEY AUTOINCREMENT, '
                 'name TEXT NOT NULL, bank TEXT NOT NULL, '
                 'credit_limit REAL NOT NULL, used_balance REAL NOT NULL, '

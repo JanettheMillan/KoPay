@@ -1,3 +1,19 @@
+/// Tipo de movimiento. Se guarda en la base con su [name].
+enum MovementType {
+  /// Gasto o entrada normal.
+  regular,
+
+  /// Pago a una tarjeta o a una deuda (S2-09). Va asociado a su
+  /// entidad con `cardId` o `debtId`.
+  payment;
+
+  /// Tipo guardado en la base, o [regular] si el texto no se reconoce.
+  static MovementType fromName(String? name) => MovementType.values.firstWhere(
+    (t) => t.name == name,
+    orElse: () => MovementType.regular,
+  );
+}
+
 /// Movimiento de dinero: un gasto (monto negativo) o una entrada
 /// (monto positivo).
 ///
@@ -23,6 +39,15 @@ class Movement {
   /// Nota opcional.
   final String? note;
 
+  /// Normal o pago.
+  final MovementType type;
+
+  /// Tarjeta a la que se abonó este pago, si aplica.
+  final int? cardId;
+
+  /// Deuda a la que se abonó este pago, si aplica.
+  final int? debtId;
+
   const Movement({
     this.id,
     required this.amount,
@@ -30,9 +55,15 @@ class Movement {
     required this.category,
     required this.date,
     this.note,
+    this.type = MovementType.regular,
+    this.cardId,
+    this.debtId,
   });
 
   bool get isExpense => amount < 0;
+
+  /// `true` si es un pago a una tarjeta o a una deuda.
+  bool get isPayment => type == MovementType.payment;
 
   /// Monto sin signo, para mostrarlo en pantalla.
   double get absAmount => amount.abs();
@@ -45,6 +76,9 @@ class Movement {
       'category': category,
       'date': date.toIso8601String(),
       'note': note,
+      'type': type.name,
+      'card_id': cardId,
+      'debt_id': debtId,
     };
   }
 
@@ -56,6 +90,9 @@ class Movement {
       category: map['category'] as String,
       date: DateTime.parse(map['date'] as String),
       note: map['note'] as String?,
+      type: MovementType.fromName(map['type'] as String?),
+      cardId: map['card_id'] as int?,
+      debtId: map['debt_id'] as int?,
     );
   }
 
@@ -69,6 +106,9 @@ class Movement {
     DateTime? date,
     String? note,
     bool clearNote = false,
+    MovementType? type,
+    int? cardId,
+    int? debtId,
   }) {
     return Movement(
       id: id ?? this.id,
@@ -77,6 +117,9 @@ class Movement {
       category: category ?? this.category,
       date: date ?? this.date,
       note: clearNote ? null : (note ?? this.note),
+      type: type ?? this.type,
+      cardId: cardId ?? this.cardId,
+      debtId: debtId ?? this.debtId,
     );
   }
 
@@ -88,14 +131,27 @@ class Movement {
       other.description == description &&
       other.category == category &&
       other.date == date &&
-      other.note == note;
+      other.note == note &&
+      other.type == type &&
+      other.cardId == cardId &&
+      other.debtId == debtId;
 
   @override
-  int get hashCode =>
-      Object.hash(id, amount, description, category, date, note);
+  int get hashCode => Object.hash(
+    id,
+    amount,
+    description,
+    category,
+    date,
+    note,
+    type,
+    cardId,
+    debtId,
+  );
 
   @override
   String toString() =>
       'Movement(id: $id, amount: $amount, description: $description, '
-      'category: $category, date: $date, note: $note)';
+      'category: $category, date: $date, note: $note, type: ${type.name}, '
+      'cardId: $cardId, debtId: $debtId)';
 }

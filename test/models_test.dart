@@ -25,6 +25,9 @@ void main() {
         'category': 'Comida',
         'date': '2026-11-05T14:30:00.000',
         'note': 'Despensa',
+        'type': 'regular',
+        'card_id': null,
+        'debt_id': null,
       });
       expect(Movement.fromMap(map), movement);
     });
