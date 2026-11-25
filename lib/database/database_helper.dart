@@ -3,22 +3,27 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../models/card_model.dart';
 import '../models/income_model.dart';
 import '../models/movement_model.dart';
 
 /// Acceso único a la base SQLite local de KoPay.
 ///
-/// Crea las tablas `movements`, `incomes` y `settings` la primera vez
-/// que se abre y ofrece alta, lectura, edición y borrado de movimientos
-/// e ingresos. Las listas se devuelven de la fecha más reciente a la
+/// Crea las tablas `movements`, `incomes`, `cards` y `settings` la
+/// primera vez que se abre y ofrece alta, lectura, edición y borrado de
+/// movimientos, ingresos y tarjetas. Las listas se devuelven de la fecha más reciente a la
 /// más antigua.
 class DatabaseHelper {
   static const String fileName = 'kopay.db';
-  static const int version = 1;
+
+  /// 1: movimientos, ingresos y ajustes (S1-08).
+  /// 2: tarjetas (S2-07).
+  static const int version = 2;
 
   static const String movementsTable = 'movements';
   static const String incomesTable = 'incomes';
   static const String settingsTable = 'settings';
+  static const String cardsTable = 'cards';
 
   /// Ajustes con los que arranca una instalación nueva.
   static const Map<String, String> defaultSettings = {
@@ -63,7 +68,11 @@ class DatabaseHelper {
     final path = _path ?? '${await factory.getDatabasesPath()}/$fileName';
     return factory.openDatabase(
       path,
-      options: OpenDatabaseOptions(version: version, onCreate: _onCreate),
+      options: OpenDatabaseOptions(
+        version: version,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      ),
     );
   }
 
@@ -109,7 +118,33 @@ class DatabaseHelper {
       'value': jsonEncode(defaultCategories),
     });
 
+    _createCardsTable(batch);
+
     await batch.commit(noResult: true);
+  }
+
+  /// Migra una base creada con una versión anterior sin borrar datos.
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    final batch = db.batch();
+    if (oldVersion < 2) _createCardsTable(batch);
+    await batch.commit(noResult: true);
+  }
+
+  /// Tabla de tarjetas (S2-07). Los importes no pueden ser negativos y
+  /// los días de corte y pago van del 1 al 31.
+  static void _createCardsTable(Batch batch) {
+    batch.execute('''
+      CREATE TABLE $cardsTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        bank TEXT NOT NULL,
+        credit_limit REAL NOT NULL CHECK (credit_limit >= 0),
+        used_balance REAL NOT NULL CHECK (used_balance >= 0),
+        cut_day INTEGER NOT NULL CHECK (cut_day BETWEEN 1 AND 31),
+        payment_day INTEGER NOT NULL CHECK (payment_day BETWEEN 1 AND 31),
+        minimum_payment REAL NOT NULL DEFAULT 0 CHECK (minimum_payment >= 0)
+      )
+    ''');
   }
 
   // ── Movimientos ──────────────────────────────────────────────
@@ -222,6 +257,53 @@ class DatabaseHelper {
     return db.delete(incomesTable, where: 'id = ?', whereArgs: [id]);
   }
 
+  // ── Tarjetas ─────────────────────────────────────────────────
+
+  /// Guarda una tarjeta nueva y la devuelve con su `id`.
+  Future<CardModel> insertCard(CardModel card) async {
+    final db = await database;
+    final id = await db.insert(cardsTable, card.toMap()..remove('id'));
+    return card.copyWith(id: id);
+  }
+
+  /// Tarjetas en el orden en que se registraron.
+  Future<List<CardModel>> getCards() async {
+    final db = await database;
+    final rows = await db.query(cardsTable, orderBy: 'id ASC');
+    return rows.map(CardModel.fromMap).toList();
+  }
+
+  /// Tarjeta con ese [id], o `null` si no existe.
+  Future<CardModel?> getCard(int id) async {
+    final db = await database;
+    final rows = await db.query(
+      cardsTable,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : CardModel.fromMap(rows.first);
+  }
+
+  /// Reemplaza los campos de la tarjeta guardada. Devuelve cuántas filas
+  /// cambiaron (0 si el `id` no existe).
+  Future<int> updateCard(CardModel card) async {
+    final id = _requireId(card.id);
+    final db = await database;
+    return db.update(
+      cardsTable,
+      card.toMap()..remove('id'),
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Borra la tarjeta. Devuelve cuántas filas se borraron.
+  Future<int> deleteCard(int id) async {
+    final db = await database;
+    return db.delete(cardsTable, where: 'id = ?', whereArgs: [id]);
+  }
+
   // ── Ajustes ──────────────────────────────────────────────────
 
   /// Valor guardado en `settings` para [key], o `null` si no existe.
@@ -271,9 +353,13 @@ class DatabaseHelper {
 
   // ── Borrado de datos (HU-28) ─────────────────────────────────
 
-  /// Tablas con datos financieros del usuario. S2-07 (tarjetas) y
-  /// S2-08 (deudas) agregan aquí su tabla para que también se borren.
-  static const List<String> financialTables = [movementsTable, incomesTable];
+  /// Tablas con datos financieros del usuario. S2-08 (deudas) agrega
+  /// aquí su tabla para que también se borre.
+  static const List<String> financialTables = [
+    movementsTable,
+    incomesTable,
+    cardsTable,
+  ];
 
   /// Borra todos los registros de [financialTables] en una sola
   /// transacción: si una tabla falla, no se borra ninguna. Conserva
