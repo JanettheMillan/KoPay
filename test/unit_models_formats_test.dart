@@ -63,8 +63,10 @@ void main() {
       expect(m.description, 'Nómina');
       expect(m.date, fecha);
       expect(m.category, 'Ingreso');
-      // El plan espera además un campo de tipo `legacy_income`; el modelo
-      // no tiene campo de tipo (se distingue por la categoría). Ver D-02.
+      // D-02: el ingreso se distingue por su categoría, no por un tipo
+      // `legacy_income`; como movimiento es `regular`, no un pago.
+      expect(m.type, MovementType.regular);
+      expect(m.isPayment, isFalse);
     });
 
     test('UT-18 · Copia parcial de ingreso', () {

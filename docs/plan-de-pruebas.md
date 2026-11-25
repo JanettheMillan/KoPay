@@ -76,7 +76,7 @@ Se ordenan primero porque representan la mayor parte del plan. Los identificador
 - **Preparación:** IncomeModel: nombre Nómina, monto 500, fecha conocida.
 - **Acción:** Aplicar toMovement().
 
-> **Resultado esperado:** Se obtiene un movimiento positivo con nombre, fecha, categoría Ingreso y tipo legacy_income.
+> **Resultado esperado:** Se obtiene un movimiento positivo con nombre, fecha y categoría Ingreso, de tipo `regular` (no es un pago). El ingreso se distingue por su categoría y en el historial por `HistoryEntry.isIncome`; no hay tipo `legacy_income` (D-02).
 
 #### UT-04 · Conversión de tarjeta a mapa
 
@@ -435,7 +435,7 @@ Se ordenan primero porque representan la mayor parte del plan. Los identificador
 
 **HU-02** · Unitaria · Prioridad alta
 
-- **Preparación:** Ingreso en IncomeModel y su representación legacy_income en movimientos.
+- **Preparación:** Ingreso guardado en la tabla `incomes` y mostrado en el historial con `toMovement()` (categoría Ingreso), sin copia en `movements`.
 - **Acción:** Calcular MonthSummary.of.
 
 > **Resultado esperado:** El ingreso se suma una sola vez.
@@ -882,7 +882,7 @@ Los casos que encontraron un defecto o que dependen de algo que todavía no exis
 | Id | Severidad | Defecto | Dónde | Propuesta |
 | :--- | :--- | :--- | :--- | :--- |
 | D-01 | Baja | `categoryEmoji` no ignora espacios ni mayúsculas y no tiene emoji para `Ingreso`. Una categoría escrita distinto se ve con el icono genérico. | `lib/widgets/category_picker_sheet.dart` | **Corregido** en S2-04 ([#140](https://github.com/JanettheMillan/KoPay/pull/140)). Verificado en la sección 8.4 ([#132](https://github.com/JanettheMillan/KoPay/issues/132)). |
-| D-02 | Baja | El plan (UT-03) espera un campo de tipo `legacy_income`, pero el modelo distingue los ingresos por la categoría `Ingreso` y el historial por `HistoryEntry.isIncome`. | `docs/plan-de-pruebas.md` o `lib/models/` | Decidir en equipo si se actualiza el caso del plan o se agrega el campo al modelo. |
+| D-02 | Baja | El plan (UT-03) espera un campo de tipo `legacy_income`, pero el modelo distingue los ingresos por la categoría `Ingreso` y el historial por `HistoryEntry.isIncome`. | `docs/plan-de-pruebas.md` o `lib/models/` | **Corregido en el plan** ([#133](https://github.com/JanettheMillan/KoPay/issues/133)): UT-03 y UT-43 describen el modelo real. Reejecución en la sección 8.6. |
 | D-03 | Media | `Movement.fromMap` e `Income.fromMap` aceptan fechas imposibles y las convierten en otra fecha sin avisar. Un dato corrupto o importado por CSV (HU-27) quedaría en otro mes. | `lib/models/movement_model.dart`, `lib/models/income_model.dart` | Validar que la fecha leída coincida con el texto, por ejemplo comparando año, mes y día después de `DateTime.parse`, y rechazar si no coincide. |
 
 ### 8.2 Ejecución S1-17: pruebas de interfaz de formularios y navegación
@@ -1033,6 +1033,23 @@ Pruebas nuevas que no están en el plan, en `test/home_screen_test.dart`:
 | HOME-03 · HU-01 · HU-02 | **Aprobado** | Guardar un gasto y un ingreso desde los providers actualiza Inicio sin reabrir (`$500`, `$50`, `$450.00`). |
 
 **Resumen:** INT-01 pasa de Fallido a Aprobado. D-05 queda cerrado. El resultado de 8.3 se conserva como registro de la primera ejecución.
+
+### 8.6 Reejecución de UT-03 tras resolver D-02
+
+| Campo | Valor |
+| :--- | :--- |
+| Tarjeta | D-02 · [#133](https://github.com/JanettheMillan/KoPay/issues/133) |
+| Fecha | 2026-11-24 |
+| Responsable | `RuAbogado` |
+| Decisión | Se ajusta el plan, no el modelo. Los ingresos viven en su propia tabla (`incomes`) y se muestran en el historial con `toMovement()`. Un tipo `legacy_income` duplicaría lo que ya indican la categoría Ingreso y `HistoryEntry.isIncome`. El campo `type` de `Movement` (S2-09) solo distingue gastos y entradas normales de los pagos. |
+| Archivo | `test/unit_models_formats_test.dart` (grupo de modelos) |
+| Comando | `flutter test test/unit_models_formats_test.dart --plain-name "UT-03"` |
+
+| Caso | Resultado | Observado |
+| :--- | :--- | :--- |
+| UT-03 · Ingreso representado como movimiento | **Aprobado** | Monto 500 positivo, descripción Nómina, fecha y categoría Ingreso; tipo `regular` y `isPayment` falso. |
+
+**Resumen:** UT-03 pasa de Fallido a Aprobado. D-02 queda cerrado. El resultado de 8.1 se conserva como registro de la primera ejecución.
 
 ## 9. Alineación con el Manual de Estilo
 
