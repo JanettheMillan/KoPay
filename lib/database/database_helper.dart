@@ -4,26 +4,29 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/card_model.dart';
+import '../models/debt_model.dart';
 import '../models/income_model.dart';
 import '../models/movement_model.dart';
 
 /// Acceso único a la base SQLite local de KoPay.
 ///
-/// Crea las tablas `movements`, `incomes`, `cards` y `settings` la
-/// primera vez que se abre y ofrece alta, lectura, edición y borrado de
-/// movimientos, ingresos y tarjetas. Las listas se devuelven de la fecha más reciente a la
+/// Crea las tablas `movements`, `incomes`, `cards`, `debts` y `settings`
+/// la primera vez que se abre y ofrece alta, lectura, edición y borrado
+/// de movimientos, ingresos, tarjetas y deudas. Las listas se devuelven de la fecha más reciente a la
 /// más antigua.
 class DatabaseHelper {
   static const String fileName = 'kopay.db';
 
   /// 1: movimientos, ingresos y ajustes (S1-08).
   /// 2: tarjetas (S2-07).
-  static const int version = 2;
+  /// 3: deudas (S2-08).
+  static const int version = 3;
 
   static const String movementsTable = 'movements';
   static const String incomesTable = 'incomes';
   static const String settingsTable = 'settings';
   static const String cardsTable = 'cards';
+  static const String debtsTable = 'debts';
 
   /// Ajustes con los que arranca una instalación nueva.
   static const Map<String, String> defaultSettings = {
@@ -119,6 +122,7 @@ class DatabaseHelper {
     });
 
     _createCardsTable(batch);
+    _createDebtsTable(batch);
 
     await batch.commit(noResult: true);
   }
@@ -127,6 +131,7 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     final batch = db.batch();
     if (oldVersion < 2) _createCardsTable(batch);
+    if (oldVersion < 3) _createDebtsTable(batch);
     await batch.commit(noResult: true);
   }
 
@@ -145,6 +150,23 @@ class DatabaseHelper {
         minimum_payment REAL NOT NULL DEFAULT 0 CHECK (minimum_payment >= 0)
       )
     ''');
+  }
+
+  /// Tabla de deudas (S2-08). Los importes no pueden ser negativos, la
+  /// fecha va en texto ISO 8601 y el estado es `pending` o `paid`.
+  static void _createDebtsTable(Batch batch) {
+    batch.execute('''
+      CREATE TABLE $debtsTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        monthly_payment REAL NOT NULL CHECK (monthly_payment >= 0),
+        remaining_balance REAL NOT NULL CHECK (remaining_balance >= 0),
+        due_date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'paid'))
+      )
+    ''');
+    batch.execute('CREATE INDEX idx_debts_due_date ON $debtsTable (due_date)');
   }
 
   // ── Movimientos ──────────────────────────────────────────────
@@ -304,6 +326,53 @@ class DatabaseHelper {
     return db.delete(cardsTable, where: 'id = ?', whereArgs: [id]);
   }
 
+  // ── Deudas ───────────────────────────────────────────────────
+
+  /// Guarda una deuda nueva y la devuelve con su `id`.
+  Future<DebtModel> insertDebt(DebtModel debt) async {
+    final db = await database;
+    final id = await db.insert(debtsTable, debt.toMap()..remove('id'));
+    return debt.copyWith(id: id);
+  }
+
+  /// Deudas de la que vence antes a la que vence después.
+  Future<List<DebtModel>> getDebts() async {
+    final db = await database;
+    final rows = await db.query(debtsTable, orderBy: 'due_date ASC, id ASC');
+    return rows.map(DebtModel.fromMap).toList();
+  }
+
+  /// Deuda con ese [id], o `null` si no existe.
+  Future<DebtModel?> getDebt(int id) async {
+    final db = await database;
+    final rows = await db.query(
+      debtsTable,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : DebtModel.fromMap(rows.first);
+  }
+
+  /// Reemplaza los campos de la deuda guardada. Devuelve cuántas filas
+  /// cambiaron (0 si el `id` no existe).
+  Future<int> updateDebt(DebtModel debt) async {
+    final id = _requireId(debt.id);
+    final db = await database;
+    return db.update(
+      debtsTable,
+      debt.toMap()..remove('id'),
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Borra la deuda. Devuelve cuántas filas se borraron.
+  Future<int> deleteDebt(int id) async {
+    final db = await database;
+    return db.delete(debtsTable, where: 'id = ?', whereArgs: [id]);
+  }
+
   // ── Ajustes ──────────────────────────────────────────────────
 
   /// Valor guardado en `settings` para [key], o `null` si no existe.
@@ -353,12 +422,12 @@ class DatabaseHelper {
 
   // ── Borrado de datos (HU-28) ─────────────────────────────────
 
-  /// Tablas con datos financieros del usuario. S2-08 (deudas) agrega
-  /// aquí su tabla para que también se borre.
+  /// Tablas con datos financieros del usuario. Todas se borran juntas.
   static const List<String> financialTables = [
     movementsTable,
     incomesTable,
     cardsTable,
+    debtsTable,
   ];
 
   /// Borra todos los registros de [financialTables] en una sola
