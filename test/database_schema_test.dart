@@ -30,7 +30,7 @@ void main() {
     return info.map((c) => c['name'] as String).toList();
   }
 
-  test('crea las tablas movements, incomes, cards y settings', () async {
+  test('crea las tablas movements, incomes, cards, debts y settings', () async {
     final db = await helper.database;
     final tables = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type = 'table' "
@@ -38,7 +38,7 @@ void main() {
     );
     expect(
       tables.map((t) => t['name']).toSet(),
-      {'movements', 'incomes', 'cards', 'settings'},
+      {'movements', 'incomes', 'cards', 'debts', 'settings'},
     );
     expect(await db.getVersion(), DatabaseHelper.version);
   });

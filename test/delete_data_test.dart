@@ -118,14 +118,15 @@ void main() {
   });
 
   test('BOR-03 · HU-28 · El borrado cubre todas las tablas financieras', () {
-    // Movimientos, ingresos y tarjetas (S2-07). S2-08 agrega deudas a
-    // esta lista y amplía esta prueba (criterios S2-03, §4).
+    // Movimientos, ingresos, tarjetas (S2-07) y deudas (S2-08), según
+    // los criterios S2-03, §4.
     expect(
       DatabaseHelper.financialTables,
       containsAll([
         DatabaseHelper.movementsTable,
         DatabaseHelper.incomesTable,
         DatabaseHelper.cardsTable,
+        DatabaseHelper.debtsTable,
       ]),
     );
     expect(
