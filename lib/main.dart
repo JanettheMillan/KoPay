@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'database/database_helper.dart';
+import 'providers/card_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/income_provider.dart';
 import 'providers/movement_provider.dart';
@@ -31,6 +32,7 @@ void main() {
         Provider<DatabaseHelper>.value(value: DatabaseHelper.instance),
         ChangeNotifierProvider(create: (_) => MovementProvider()..load()),
         ChangeNotifierProvider(create: (_) => IncomeProvider()..load()),
+        ChangeNotifierProvider(create: (_) => CardProvider()..load()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()..load()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()..load()),
       ],
