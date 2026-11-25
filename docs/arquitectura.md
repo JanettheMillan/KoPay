@@ -2,74 +2,176 @@
 
 ## 1. Propósito y alcance
 
-Este documento define la arquitectura prevista para KoPay y guía las tarjetas del [backlog](backlog-desarrollo-desde-cero.md). Los componentes se implementarán y verificarán por sprint en el repositorio de entrega.
+Este documento describe la arquitectura de KoPay y guía las tarjetas del [backlog](backlog-desarrollo-desde-cero.md). Las secciones 2 a 5 describen lo implementado en la app local; las secciones 6 y 7, la arquitectura objetivo con API y vista de contador.
 
 ## 2. Vista general
 
-KoPay se desarrollará en Flutter. La interfaz se organizará en `lib/screens/` y `lib/widgets/`. Los proveedores de `lib/providers/` mantendrán el estado de tarjetas, deudas, ingresos, movimientos, categorías y ajustes. `DatabaseHelper` concentrará el acceso a SQLite local. `CsvBackupService` realizará la exportación XLSX y la importación de archivos CSV compatibles.
+> **Estado:** implementado en `develop` al 2026-11-24 (S2-02, [#34](https://github.com/JanettheMillan/KoPay/issues/34)). Lo que aún no existe se marca como *pendiente*, con su tarjeta.
+
+KoPay está hecha en Flutter:
+- La interfaz vive en `lib/screens/` y `lib/widgets/`.
+- Los proveedores de `lib/providers/` guardan el estado de movimientos, ingresos, tarjetas, categorías y ajustes.
+- `DatabaseHelper` es el único que habla con SQLite.
+- `BackupService` arma el XLSX de respaldo y valida el CSV de importación. `BackupPlatform` abre el selector de archivos y la hoja de compartir del teléfono.
 
 ```mermaid
 flowchart LR
     U[Persona usuaria] --> S[Pantallas y formularios Flutter]
     S --> P[Providers ChangeNotifier]
+    P --> V[Validators]
     P --> D[DatabaseHelper]
-    D --> DB[(SQLite local)]
-    S --> B[CsvBackupService]
-    B --> D
-    B --> F[Archivo XLSX o CSV]
+    D --> DB[(SQLite local kopay.db)]
+    S --> B[BackupService]
+    B --> V
+    S --> BP[BackupPlatform]
+    BP --> F[Archivo XLSX o CSV]
+    S -- importar o borrar --> D
 ```
 
-### Módulos y ubicación propuesta
+### Módulos y archivos
 
-| Módulo | Archivos principales | Responsabilidad |
+| Módulo | Archivos | Responsabilidad |
 | :--- | :--- | :--- |
-| Inicio y navegación | `home_screen.dart`, `splash_screen.dart` | Resumen mensual, actividad reciente, tarjetas y próximos pagos. |
-| Movimientos e ingresos | `movements_screen.dart`, `add_movement_sheet.dart`, `add_income_sheet.dart` | Captura y consulta de entradas y salidas de dinero. |
-| Tarjetas y deudas | Formularios y detalles en `lib/widgets/` | Registro, consulta y pagos. |
-| Estado | `lib/providers/` | Carga de datos y notificación a la interfaz. |
-| Persistencia | `lib/database/database_helper.dart` | Tablas SQLite y operaciones de lectura y escritura. |
-| Ajustes y archivos | `settings_screen.dart`, `csv_backup_service.dart` | Moneda, idioma, exportación XLSX, importación CSV y borrado local. |
-| Formato y vencimientos | `lib/utils/` | Fechas, importes y próximos pagos. |
+| Inicio | `screens/home_screen.dart` | Balance, ingresos, gastos y movimientos del mes elegido. Lee `MovementProvider` e `IncomeProvider`. |
+| Movimientos e ingresos | `screens/movements_screen.dart`, `widgets/add_movement_sheet.dart`, `widgets/add_income_sheet.dart` | Historial que junta gastos e ingresos (`buildHistory`), alta y edición. |
+| Categorías | `widgets/category_picker_sheet.dart` | Selector con búsqueda, alta, renombrado y borrado; `categoryEmoji`. |
+| Ajustes | `screens/settings_screen.dart` | Moneda, idioma, exportar XLSX, importar CSV y borrar datos. |
+| Tarjetas, deudas y pagos | `models/card_model.dart`, `models/debt_model.dart`, `providers/card_provider.dart` | Modelo, tabla y estado de tarjetas; modelo y tabla de deudas; pagos en `DatabaseHelper`. Pantallas *pendientes*: S2-13 a S2-15. |
+| Estado | `lib/providers/` | Carga, validación, escritura y aviso a la interfaz. |
+| Persistencia | `database/database_helper.dart` | Tablas, migraciones y operaciones SQLite. |
+| Respaldo | `services/backup_service.dart`, `services/backup_platform.dart` | XLSX, validación del CSV y acceso a archivos del teléfono. |
+| Utilidades | `utils/validators.dart`, `utils/format_utils.dart`, `utils/app_strings.dart` | Reglas de validación, formato de moneda y fechas, textos en español e inglés. |
 
-### Contratos previstos entre pantallas y estado
+### Contratos entre pantallas y estado
 
-| Pantalla o formulario | Proveedor | Entrada y respuesta esperada |
+| Pantalla o formulario | Proveedor | Métodos que usa |
 | :--- | :--- | :--- |
-| Nuevo gasto y Movimientos | `MovementProvider` | Recibe monto, descripción, categoría y fecha; valida el registro, lo guarda y notifica la lista actualizada. |
-| Nuevo ingreso | `IncomeProvider` | Recibe nombre, monto y fecha; guarda un ingreso válido y notifica el cambio. |
-| Inicio | `MovementProvider` e `IncomeProvider` | Consulta los registros del periodo seleccionado y presenta los totales calculados para ese mes. |
-| Tarjetas y deudas | Proveedores de tarjetas y deudas | Reciben altas, cambios y pagos válidos; devuelven saldos y próximos vencimientos actualizados. |
-| Ajustes | Proveedor de ajustes | Lee y guarda moneda, idioma y categorías; avisa a las pantallas cuando cambian. |
+| Nuevo gasto y Movimientos | `MovementProvider` | `add`, `update` y `delete` lanzan `ValidationException` si el registro no es válido. `movements` (lista), `forMonth`. |
+| Nuevo ingreso | `IncomeProvider` | `add`, `update`, `delete`, `byId`. |
+| Inicio | `MovementProvider` e `IncomeProvider` | `forMonth`, `expensesForMonth`, `entriesForMonth` y `totalForMonth` del mes elegido. |
+| Tarjetas (S2-13, *pendiente*) | `CardProvider` | `add`, `update`, `delete`, `byId`, `totalLimit`, `totalUsed` y `totalAvailable`. |
+| Deudas (S2-14, *pendiente*) | Proveedor de deudas (S2-11, *pendiente*) | Usará `insertDebt`, `getDebts` y `updateDebt`. |
+| Pagos (S2-15, *pendiente*) | Proveedores de tarjetas y deudas | Usarán `insertCardPayment` e `insertDebtPayment`, y después recargarán tarjetas, deudas y movimientos. |
+| Categorías | `CategoryProvider` | `search`, `validate`, `add`, `rename`, `remove`. |
+| Ajustes | `SettingsProvider` | `setCurrency` y `setLanguage`. Cambian `FormatUtils` y `AppStrings` en toda la app. |
+| Importar o borrar datos | `DatabaseHelper` directo | `replaceFinancialData` y `deleteFinancialData`; después se llama `load()` en cada proveedor. |
 
-Las operaciones de escritura pasarán del formulario al proveedor y de este a `DatabaseHelper`. La pantalla recibirá el resultado de validación y el estado actualizado; no accederá directamente a SQLite. Los nombres definitivos de métodos se acordarán al implementar cada módulo.
+Las pantallas no escriben en SQLite. La única excepción son importar y borrar, que reemplazan todo en una sola transacción y luego recargan los proveedores. `DatabaseHelper` se obtiene con `Provider<DatabaseHelper>`, y las pruebas lo cambian por uno en memoria.
 
-## 3. Patrón de diseño propuesto
+## 3. Patrón de estado
 
-La app usará `Provider` y `ChangeNotifier` para que las pantallas reaccionen a cambios de estado. Cuando un formulario guarde un registro, el proveedor lo escribirá mediante `DatabaseHelper`, recargará la lista y notificará a sus consumidores. Este flujo aplicará el patrón de **observador** al estado de la interfaz. `DatabaseHelper.instance` ofrecerá una instancia compartida, equivalente a un **singleton** para el acceso a la base local. La API Node.js se construirá como servicio separado.
+KoPay usa `provider` con `ChangeNotifier`, que aplica el patrón **observador**:
+
+1. El formulario arma el modelo (`Movement`, `Income`, `CardModel`, …) y llama al proveedor.
+2. El proveedor valida con `Validators.check…`. Si no es válido, lanza `ValidationException` y el formulario muestra el mensaje.
+3. Si es válido, escribe con `DatabaseHelper`, **recarga la lista desde la base** y llama a `notifyListeners()`.
+4. Cada pantalla que hace `context.watch<…>()` se reconstruye con los datos nuevos. Por eso Inicio y Movimientos se actualizan sin reabrir (D-05, [#131](https://github.com/JanettheMillan/KoPay/issues/131)).
+
+Todos los proveedores siguen la misma forma: `load()`, `isLoading`, `isLoaded`, y una lista inmutable hacia afuera. Los totales se calculan al pedirlos, no se guardan. `DatabaseHelper.instance` es un **singleton**: una sola conexión compartida por toda la app.
+
+Los proveedores se registran en `main.dart`: `MovementProvider`, `IncomeProvider`, `CardProvider`, `CategoryProvider` y `SettingsProvider`, además de `Provider<DatabaseHelper>`.
 
 ## 4. Flujo del registro de un gasto
 
 ```mermaid
 flowchart TD
-    A[Se abre Nuevo movimiento] --> B[Se capturan monto y descripción]
-    B --> C{¿Monto válido y descripción presente?}
-    C -- No --> D[El formulario permanece abierto]
-    C -- Sí --> E[Se construye un movimiento de gasto negativo]
+    A[Se abre Nuevo gasto] --> B[Se capturan monto, descripción y categoría]
+    B --> C{¿Validators acepta los campos?}
+    C -- No --> D[El formulario muestra el error y sigue abierto]
+    C -- Sí --> E[Se construye un Movement con importe negativo]
     E --> F[MovementProvider.add]
     F --> G[DatabaseHelper.insertMovement]
     G --> H[(SQLite)]
     H --> I[El proveedor recarga y notifica]
-    I --> J[Movimientos e Inicio muestran el gasto]
-    I --> K[Inicio recalcula el resumen del mes]
+    I --> J[Movimientos muestra el gasto]
+    I --> K[Inicio recalcula el balance del mes]
 ```
 
-El formulario deberá validar un monto numérico mayor que cero y una descripción no vacía antes de guardar. El resumen del mes considerará ingresos, gastos y pagos de tarjeta por separado. La ejecución en un dispositivo deberá confirmar el resultado visible; el diagrama representa el flujo previsto.
+Comprobado con INT-01 en la app de escritorio con SQLite real: Inicio pasa de `$0.00` a `$450.00` después de un gasto de 50 y un ingreso de 500 (plan de pruebas, sección 8.5).
 
-## 5. Datos y límites de la versión
+Un pago de tarjeta o de deuda sigue otro camino:
+1. `insertCardPayment` o `insertDebtPayment` guarda en **una transacción** un movimiento `type = payment`, con importe negativo y `card_id` o `debt_id`.
+2. En la misma transacción descuenta el saldo de la tarjeta o la deuda. Si el saldo de la deuda llega a cero, la deuda pasa a `paid`.
+3. Los importes se comparan y restan en **centavos enteros** (D-06, [#153](https://github.com/JanettheMillan/KoPay/issues/153)).
+4. Si algo falla, no cambia nada.
 
-SQLite local tendrá las tablas `cards`, `debts`, `movements`, `incomes` y `settings`. Las categorías se guardarán dentro de `settings`. Los ingresos tendrán una tabla propia y se mostrarán junto a movimientos mediante una conversión para la lista. La representación de importes y sus reglas de redondeo se definirán y comprobarán con casos financieros.
+## 5. Esquema de datos
 
-La opción **Exportar respaldo** de Ajustes generará un archivo **XLSX**. La opción **Importar CSV** recibirá un archivo **CSV** compatible y reemplazará los datos locales después de pedir confirmación. El XLSX exportado no se importará directamente con ese botón. La guía de evidencias y el plan de pruebas tratan ambas rutas por separado.
+Base `kopay.db`, **versión 4**. Las fechas se guardan como texto ISO 8601 para poder ordenarlas y filtrarlas por mes. Los importes son `REAL`.
+
+```mermaid
+erDiagram
+    CARDS ||--o{ MOVEMENTS : "pagos (card_id)"
+    DEBTS ||--o{ MOVEMENTS : "pagos (debt_id)"
+    MOVEMENTS {
+        int id PK
+        real amount "negativo = gasto o pago"
+        text description
+        text category
+        text date
+        text note
+        text type "regular | payment"
+        int card_id
+        int debt_id
+    }
+    INCOMES {
+        int id PK
+        text name
+        real amount ">= 0"
+        text date
+        text note
+    }
+    CARDS {
+        int id PK
+        text name
+        text bank
+        real credit_limit ">= 0"
+        real used_balance ">= 0"
+        int cut_day "1-31"
+        int payment_day "1-31"
+        real minimum_payment ">= 0"
+    }
+    DEBTS {
+        int id PK
+        text name
+        real monthly_payment ">= 0"
+        real remaining_balance ">= 0"
+        text due_date
+        text status "pending | paid"
+    }
+    SETTINGS {
+        text key PK
+        text value
+    }
+```
+
+| Tabla | Contenido | Reglas en la base | Índices |
+| :--- | :--- | :--- | :--- |
+| `movements` | Gastos (importe negativo), entradas (positivo) y pagos (`type = payment`). | `type` solo `regular` o `payment`. | `date`, `card_id`, `debt_id` |
+| `incomes` | Ingresos con nombre. En el historial se muestran con `Income.toMovement()` (categoría Ingreso), sin copiarse a `movements` (D-02). | `amount >= 0` | `date` |
+| `cards` | Tarjetas de crédito. El disponible (`límite − usado`, mínimo 0) se calcula en el modelo, no se guarda. | Importes `>= 0`; días entre 1 y 31. | — |
+| `debts` | Deudas con saldo restante y vencimiento. | Importes `>= 0`; `status` solo `pending` o `paid`. | `due_date` |
+| `settings` | `currency`, `language` y `categories` (lista en JSON). | Clave única. | — |
+
+**Migraciones** (`onUpgrade`, sin borrar datos):
+
+| Versión | Tarjeta | Cambio |
+| :--- | :--- | :--- |
+| 1 | S1-08 | `movements`, `incomes` y `settings` con valores iniciales. |
+| 2 | S2-07 | Tabla `cards`. |
+| 3 | S2-08 | Tabla `debts`. |
+| 4 | S2-09 | Columnas `type`, `card_id` y `debt_id` en `movements`. |
+
+Cada tarjeta que agregue una tabla sube `DatabaseHelper.version` y añade su paso `if (oldVersion < N)`. Si la tabla guarda datos del usuario, también la agrega a `DatabaseHelper.financialTables`, para que **Borrar datos** (S2-20) la vacíe en la misma transacción. `settings` nunca se borra.
+
+**Respaldo:**
+- **Exportar respaldo** genera un **XLSX** con las hojas Movimientos, Ingresos y Respaldo.
+- **Importar CSV** valida todo el archivo antes de escribir y reemplaza movimientos e ingresos en una transacción, después de pedir confirmación. Las reglas están en [criterios de respaldo, importación y borrado](criterios-respaldo-importacion-borrado.md).
+- *Pendiente:* el CSV no lleva `type`, `card_id` ni `debt_id`. Un pago importado vuelve como gasto `regular`, y las tarjetas y deudas no se exportan.
+
+**Pendientes del esquema para el Sprint 2:**
+- `expensesForMonth` todavía cuenta los pagos como gastos. S2-12 y S2-15 deben separarlos con `Movement.isPayment`.
+- Borrar o editar un pago desde Movimientos no restaura el saldo de la tarjeta o la deuda (S2-15).
 
 ## 6. Arquitectura objetivo: vista de usuario y vista de contador
 
