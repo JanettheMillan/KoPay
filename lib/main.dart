@@ -18,6 +18,7 @@ import 'screens/settings_screen.dart';
 import 'services/accountants_api.dart';
 import 'services/auth_api.dart';
 import 'services/http_auth_api.dart';
+import 'services/incomes_api.dart';
 import 'services/movements_api.dart';
 import 'services/session_store.dart';
 import 'utils/app_strings.dart';
@@ -63,7 +64,12 @@ void main() {
           create: (_) => MovementProvider(api: HttpMovementsApi())..load(),
           update: (_, session, movements) => movements!..bindSession(session),
         ),
-        ChangeNotifierProvider(create: (_) => IncomeProvider()..load()),
+        // Igual que los movimientos: con sesión de usuario, los ingresos
+        // van a la API (S5-08); sin sesión, solo a SQLite.
+        ChangeNotifierProxyProvider<SessionProvider, IncomeProvider>(
+          create: (_) => IncomeProvider(api: HttpIncomesApi())..load(),
+          update: (_, session, incomes) => incomes!..bindSession(session),
+        ),
         ChangeNotifierProvider(create: (_) => CardProvider()..load()),
         ChangeNotifierProvider(create: (_) => DebtProvider()..load()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()..load()),

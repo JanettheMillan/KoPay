@@ -30,8 +30,8 @@ void main() {
     return info.map((c) => c['name'] as String).toList();
   }
 
-  test('crea las tablas movements, incomes, cards, debts, settings y '
-      'movement_remote', () async {
+  test('crea las tablas movements, incomes, cards, debts, settings, '
+      'movement_remote e income_remote', () async {
     final db = await helper.database;
     final tables = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type = 'table' "
@@ -39,8 +39,17 @@ void main() {
     );
     expect(
       tables.map((t) => t['name']).toSet(),
-      // movement_remote: relación con los movimientos de la API (S5-07).
-      {'movements', 'incomes', 'cards', 'debts', 'settings', 'movement_remote'},
+      // movement_remote e income_remote: relación con los movimientos
+      // (S5-07) y los ingresos (S5-08) de la API.
+      {
+        'movements',
+        'incomes',
+        'cards',
+        'debts',
+        'settings',
+        'movement_remote',
+        'income_remote',
+      },
     );
     expect(await db.getVersion(), DatabaseHelper.version);
   });
