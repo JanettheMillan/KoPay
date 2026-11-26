@@ -90,7 +90,8 @@ describe('Protección de las rutas financieras', () => {
 
   test('FIN-03 · HU-34 · un recurso sin rutas todavía responde 404 a una cuenta user, no 500', async () => {
     const { api, tokens } = await setup();
-    for (const resource of ['incomes', 'cards', 'debts']) {
+    // movements (S5-01) e incomes (S5-02) ya tienen rutas; cards y debts llegan en S5-04.
+    for (const resource of ['cards', 'debts']) {
       const res = await api.get(`/api/${resource}`).set('Authorization', tokens.ana);
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('NOT_FOUND');

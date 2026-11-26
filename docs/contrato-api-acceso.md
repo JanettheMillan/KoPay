@@ -348,6 +348,41 @@ Campos de `POST` y `PUT` (se revisan todos a la vez, igual que en la app):
 - **Pagos:** los movimientos `type: "payment"` aparecen en `GET`, pero se registran, cambian y borran desde su tarjeta o deuda (S5-05), para que el saldo no quede desfasado (S2-15). Un `POST` con `type: "payment"`, o un `PUT` o `DELETE` sobre un pago, responde `400` con `fields.type`: `Los pagos se registran desde su tarjeta o deuda`.
 - El `409` se responde también si dos `PUT` llegan a la vez: solo uno gana.
 
+### 3.13 `/api/incomes` · Ingresos (HU-02, HU-09, S5-02)
+
+Mismas reglas de sesión, dueño y respuestas que `/api/movements` (§3.12): sin sesión `401`, con una cuenta `accountant` `403`, el dueño siempre es la cuenta de la sesión y un ingreso de otra cuenta responde `404` igual que uno que no existe.
+
+Un ingreso en las respuestas:
+
+```json
+{
+  "id": "c3d4…", "name": "Nómina", "amount": 12500, "date": "2026-11-15T00:00:00.000Z",
+  "note": null, "version": 1,
+  "createdAt": "2026-11-26T18:30:00.000Z", "updatedAt": "2026-11-26T18:30:00.000Z"
+}
+```
+
+| Método y ruta | Éxito | Errores propios |
+| :--- | :--- | :--- |
+| `GET /api/incomes` | `200 { "incomes": [ … ] }`, del más reciente al más antiguo. `?month=AAAA-MM` filtra por mes (UTC). | `400` con `fields.month` si el mes no es `AAAA-MM` |
+| `GET /api/incomes/:id` | `200 { "income" }` | `404 NOT_FOUND` si no existe o es de otra cuenta |
+| `POST /api/incomes` | `201 { "income" }` con `version: 1` | `400 VALIDATION_FAILED` con `fields` |
+| `PUT /api/incomes/:id` | `200 { "income" }` con la `version` aumentada en 1 | `400`, `404`, `409 VERSION_CONFLICT` |
+| `DELETE /api/incomes/:id` | `204` sin cuerpo | `404` |
+
+Campos de `POST` y `PUT` (se revisan todos a la vez, igual que en la app):
+
+| Campo | Regla | Mensaje en `fields` |
+| :--- | :--- | :--- |
+| `amount` | Número **mayor que cero**, con máximo dos decimales y hasta 999,999,999.99. Un ingreso no lleva signo. | `Escribe un monto` / `Escribe un monto válido, por ejemplo 150.50` / `El monto debe ser mayor que cero` / `El monto es demasiado grande` / `Usa máximo dos decimales` |
+| `name` | Obligatorio, de 1 a 60 caracteres sin espacios a los lados. | `Escribe el nombre del ingreso` / `El nombre puede tener hasta 60 caracteres` |
+| `date` | Igual que en §3.12. | `Escribe una fecha válida (AAAA-MM-DD)` |
+| `note` | Opcional, hasta 140 caracteres. Vacía se guarda como `null`. | `La nota puede tener hasta 140 caracteres` |
+| `version` | Solo en `PUT`, opcional. Igual que en §3.12. | `La versión debe ser un número entero mayor que cero` |
+
+- Los campos `id`, `userId`, `category`, `createdAt` y `updatedAt` que mande la app se ignoran. En la app, un ingreso se muestra en Movimientos con la categoría "Ingreso" (`Income.toMovement`), pero esa categoría no se guarda.
+- "Ingresos del mes" en Inicio (HU-09) es la suma de `GET /api/incomes?month=AAAA-MM`. Crear, editar la fecha o borrar un ingreso cambia esa consulta en la siguiente lectura.
+
 ## 4. Resumen de rutas
 
 | Método y ruta | Sesión | Tarjeta | Éxito | Errores propios |
@@ -365,6 +400,7 @@ Campos de `POST` y `PUT` (se revisan todos a la vez, igual que en la app):
 | `GET /api/clients` | Sí, `accountant` | S4-06 | `200 { clients }` | `FORBIDDEN` |
 | `GET /api/clients/:userId` | Sí, `accountant` con permiso | S4-06 | `200 { client }` | `FORBIDDEN` |
 | `GET`, `POST /api/movements` y `GET`, `PUT`, `DELETE /api/movements/:id` | Sí, `user` | S5-01 | `200`/`201 { movement(s) }`, `204` al borrar | `VALIDATION_FAILED`, `NOT_FOUND`, `VERSION_CONFLICT`, `FORBIDDEN` |
+| `GET`, `POST /api/incomes` y `GET`, `PUT`, `DELETE /api/incomes/:id` | Sí, `user` | S5-02 | `200`/`201 { income(s) }`, `204` al borrar | `VALIDATION_FAILED`, `NOT_FOUND`, `VERSION_CONFLICT`, `FORBIDDEN` |
 | `GET /api/exchange-rates` | Sí, cualquier rol | S5-06 | `200 { base, quote, rate, date, source }` | `UNAVAILABLE` |
 
 ## 5. Casos de prueba del contrato

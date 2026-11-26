@@ -21,6 +21,8 @@ function createMemoryStore({ now = () => new Date() } = {}) {
   const grantsById = new Map();
   /** Movimientos por `id`, como la tabla `movements` (S5-01). */
   const movementsById = new Map();
+  /** Ingresos por `id`, como la tabla `incomes` (S5-02). */
+  const incomesById = new Map();
   /**
    * Código de recuperación vigente por cuenta (S4-19), como la tabla
    * `password_resets`: pedir otro reemplaza al anterior.
@@ -180,6 +182,67 @@ function createMemoryStore({ now = () => new Date() } = {}) {
       const movement = movementsById.get(id);
       if (!movement || movement.userId !== userId) return false;
       return movementsById.delete(id);
+    },
+
+    // ── Ingresos (S5-02) ───────────────────────────────────────────
+
+    /** Guarda un ingreso de `userId` y lo devuelve con `id` y `version` 1. */
+    async createIncome({ userId, name, amount, date, note }) {
+      const stamp = now().toISOString();
+      const income = {
+        id: randomUUID(),
+        userId,
+        name,
+        amount: Math.round(amount * 100) / 100,
+        date: date.toISOString(),
+        note: note ?? null,
+        version: 1,
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
+      incomesById.set(income.id, income);
+      return { ...income };
+    },
+
+    /** Ingreso con ese `id`, de cualquier cuenta, o `null`. El servicio revisa el dueño. */
+    async findIncomeById(id) {
+      const income = incomesById.get(id);
+      return income ? { ...income } : null;
+    },
+
+    /** Ingresos de `userId`, del más reciente al más antiguo; `from`/`to` acotan la fecha. */
+    async listIncomes({ userId, from, to }) {
+      return [...incomesById.values()]
+        .filter((i) => i.userId === userId)
+        .filter((i) => !from || new Date(i.date) >= from)
+        .filter((i) => !to || new Date(i.date) < to)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
+        .map((i) => ({ ...i }));
+    },
+
+    /**
+     * Cambia el ingreso solo si es de `userId` y sigue en
+     * `expectedVersion`; sube la versión. Devuelve `null` si no se cambió.
+     */
+    async updateIncome({ id, userId, expectedVersion, name, amount, date, note }) {
+      const income = incomesById.get(id);
+      if (!income || income.userId !== userId || income.version !== expectedVersion) return null;
+      Object.assign(income, {
+        name,
+        amount: Math.round(amount * 100) / 100,
+        date: date.toISOString(),
+        note: note ?? null,
+        version: income.version + 1,
+        updatedAt: now().toISOString(),
+      });
+      return { ...income };
+    },
+
+    /** Borra el ingreso si es de `userId`. Devuelve `true` si lo borró. */
+    async deleteIncome({ id, userId }) {
+      const income = incomesById.get(id);
+      if (!income || income.userId !== userId) return false;
+      return incomesById.delete(id);
     },
 
     /**

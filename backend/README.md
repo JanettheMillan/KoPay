@@ -186,6 +186,21 @@ curl -s -X POST http://localhost:3000/api/movements -H "Authorization: Bearer <a
 
 Después de actualizar `develop`, corre `npm run migrate`: S5-01 agrega `005_movements.sql`.
 
+### Ingresos (S5-02)
+
+`/api/incomes` sigue el mismo patrón que movimientos. El detalle está en la sección 3.13 del contrato.
+
+- `GET /api/incomes` (opcional `?month=AAAA-MM`), `GET /api/incomes/:id`, `POST`, `PUT /:id` y `DELETE /:id`.
+- Un ingreso tiene `name`, `amount` (siempre mayor que cero), `date` y `note`. No lleva categoría.
+- `PUT` acepta `version` y responde `409 VERSION_CONFLICT` si ya cambió en otro dispositivo.
+
+```bash
+curl -s -X POST http://localhost:3000/api/incomes -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" -d '{"name":"Nómina","amount":12500,"date":"2026-11-15"}'
+```
+
+Después de actualizar `develop`, corre `npm run migrate`: S5-02 agrega `006_incomes.sql`.
+
 ### Recuperación de acceso (S4-19)
 
 1. `POST /api/auth/recover` con `{ "email" }` responde siempre `200 { message }`, exista o no la cuenta. Si existe, envía por correo un código de 6 dígitos que vence en 15 minutos. Como máximo un correo por minuto por cuenta: antes de ese minuto responde igual, pero no envía otro.

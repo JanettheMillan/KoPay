@@ -70,6 +70,8 @@ Convenciones: llaves `uuid` con `gen_random_uuid()`; dinero en `numeric(14,2)`. 
 > **Reglas 2, 3 y 5 de la sección 3 en código (S4-03, [#69](https://github.com/JanettheMillan/KoPay/issues/69)):** `backend/src/routes/finances.routes.js` protege `/api/movements`, `/api/incomes`, `/api/cards` y `/api/debts` con sesión, rol `user` y `bindOwner` (el dueño sale de la sesión). `ensureOwned` responde `404` igual para un registro ajeno y uno inexistente. DB-04 queda probado con un recurso de prueba (FIN-05); S5-01 lo repite con la tabla real.
 >
 > **Tabla `movements` (S5-01, [#87](https://github.com/JanettheMillan/KoPay/issues/87)):** `backend/migrations/005_movements.sql`, con `user_id`, `numeric(14,2)`, `version` y `updated_at`. Las llaves foráneas de `card_id` y `debt_id` las agrega S5-04 junto con `cards` y `debts`. DB-04 se repite con la tabla real (MOV-05 y E2E-05).
+
+> **Tabla `incomes` (S5-02, [#88](https://github.com/JanettheMillan/KoPay/issues/88)):** `backend/migrations/006_incomes.sql`, con `user_id` (`ON DELETE CASCADE`), `numeric(14,2)` mayor que cero, `version` y `updated_at`. DB-10 revisa sus restricciones y DB-04 se repite con la tabla real (INC-05 y E2E-06).
 >
 > **Implementado en S3-06** ([#54](https://github.com/JanettheMillan/KoPay/issues/54)): `backend/migrations/002_accountant_access.sql` con el esquema de [reglas-roles-contador.md §6](reglas-roles-contador.md), y los permisos en `pg-store.js` (`createGrant`, `listActiveGrantsByUser`, `findActiveGrant`, `revokeGrant` y `listGrantsByUser`, la misma interfaz que S4-05 usa en memoria). DB-03 tiene prueba.
 
@@ -84,7 +86,7 @@ Estos casos se ejecutan en las tarjetas que implementan cada parte. Este documen
 | DB-01 · Migración desde cero | S3-05 | En una base `test` vacía, correr `npm run migrate` dos veces. | La primera crea `users`, `sessions` y `schema_migrations`. La segunda no hace nada y no falla. |
 | DB-02 · Restricciones | S3-05 | Insertar dos usuarios con el mismo correo y un rol que no existe. | Ambos se rechazan. |
 | DB-03 · Conceder y revocar | S3-06 | Conceder acceso a un contador, revocarlo y volver a consultar. | Solo cuenta la autorización activa. |
-| DB-04 · Aislamiento | S4-03 y S5-01 | La cuenta A crea un movimiento y la cuenta B lo pide por su id. | B recibe 404 y la fila sigue intacta. |
+| DB-04 · Aislamiento | S4-03, S5-01 y S5-02 | La cuenta A crea un movimiento y la cuenta B lo pide por su id. | B recibe 404 y la fila sigue intacta. |
 | DB-05 · Salud sin base | S3-05 | Arrancar la API con una `DATABASE_URL` inalcanzable y pedir `GET /api/health`. | Responde 503 sin mostrar la cadena de conexión. |
 | DB-06 · Códigos de recuperación | S4-19 | Guardar un código, pedir otro, fallar 6 veces, completar el cambio dos veces y borrar la cuenta. | Queda un solo código; los intentos paran en 5; el segundo cambio no hace nada; las sesiones quedan cerradas; borrar la cuenta borra sus códigos. |
 

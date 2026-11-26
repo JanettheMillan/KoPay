@@ -65,6 +65,7 @@ describe('DB-01 · Migración desde cero', () => {
       '003_password_resets.sql',
       '004_session_refresh.sql',
       '005_movements.sql',
+      '006_incomes.sql',
     ]);
 
     const { rows } = await client.query(
@@ -73,6 +74,7 @@ describe('DB-01 · Migración desde cero', () => {
     );
     expect(rows.map((r) => r.table_name)).toEqual([
       'accountant_access',
+      'incomes',
       'movements',
       'password_resets',
       'schema_migrations',
@@ -92,6 +94,7 @@ describe('DB-01 · Migración desde cero', () => {
       { version: '003' },
       { version: '004' },
       { version: '005' },
+      { version: '006' },
     ]);
   });
 });

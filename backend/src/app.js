@@ -7,11 +7,13 @@ const { createMemoryStore } = require('./data/store');
 const { errorHandler, notFound } = require('./middleware/errors');
 const { createRbac } = require('./middleware/rbac');
 const { apiRoutes } = require('./routes');
+const { incomeRoutes } = require('./routes/incomes.routes');
 const { movementRoutes } = require('./routes/movements.routes');
 const { createAccountantAccessService } = require('./services/accountant-access.service');
 const { createAuthService } = require('./services/auth.service');
 const { createExchangeRateService } = require('./services/exchange-rate.service');
 const { createHealthService } = require('./services/health.service');
+const { createIncomeService } = require('./services/income.service');
 const { createMailer } = require('./services/mail.service');
 const { createMovementService } = require('./services/movement.service');
 const { createRecoveryService } = require('./services/recovery.service');
@@ -33,13 +35,16 @@ function createApp({
 } = {}) {
   const sessionService = createSessionService({ store, now, secret: config.jwtSecret });
   const movementService = createMovementService({ store });
+  const incomeService = createIncomeService({ store });
   const services = {
     // Rutas de cada recurso financiero; las pruebas pueden reemplazarlas.
     financeRegistrars: {
       movements: movementRoutes({ movementService }),
+      incomes: incomeRoutes({ incomeService }),
       ...financeRegistrars,
     },
     movementService,
+    incomeService,
     healthService: createHealthService({ store, config }),
     sessionService,
     authService: createAuthService({ store, sessionService }),
