@@ -2,13 +2,13 @@
 
 API Node.js de KoPay (Express 5). Expone la ruta de salud, el registro de cuentas y el inicio de sesión. La sincronización se agrega en tarjetas siguientes.
 
-**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales), S3-09 (login).
+**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales), S3-09 (login), S4-01 (JWT y PostgreSQL en `npm start`), S4-19 (recuperación de acceso).
 
 ## 1. Requisitos
 
 - Node.js 20 o más reciente (`node -v`).
 - npm, que viene con Node (`npm -v`).
-- Para `npm start` todavía no hace falta base: la API usa la capa en memoria. La contraseña ya se guarda como hash (S3-08); falta cambiar `server.js` a `createPgStore` (pendiente con S3-09).
+- `npm start` guarda cuentas, sesiones y permisos en PostgreSQL (`DATABASE_URL`, S4-01): ya no se pierden al reiniciar. Antes de arrancar por primera vez, corre `npm run migrate`. Sin base, la API arranca pero responde 503.
 - Para `npm run migrate` y `npm run test:db`: PostgreSQL 16 en `DATABASE_URL` (S3-05). Acuerdos en [`docs/base-de-datos.md`](../docs/base-de-datos.md).
 
 ### PostgreSQL local con Docker
@@ -81,7 +81,7 @@ Respuesta esperada (200):
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
-{"status":"ok","service":"kopay-api","version":"0.1.0","environment":"development","data":{"kind":"memory","ok":true},"timestamp":"2026-11-26T15:00:00.000Z"}
+{"status":"ok","service":"kopay-api","version":"0.1.0","environment":"development","data":{"kind":"postgres","ok":true},"timestamp":"2026-11-26T15:00:00.000Z"}
 ```
 
 Sin `curl`, abre `http://localhost:3000/api/health` en el navegador. Desde un emulador Android, la computadora se ve como `http://10.0.2.2:3000`.
@@ -105,7 +105,7 @@ Cuerpo JSON, igual en los dos casos:
 | `service` | texto | Siempre `"kopay-api"`. |
 | `version` | texto | Versión de `package.json`, por ejemplo `"0.1.0"`. |
 | `environment` | texto | `"development"`, `"test"` o `"production"`. |
-| `data.kind` | texto | Tipo de capa de datos: hoy `"memory"`; `"postgres"` cuando el servidor use la base (pendiente con S3-09). |
+| `data.kind` | texto | Tipo de capa de datos: `"postgres"` con `npm start`; `"memory"` en pruebas con configuración manual. |
 | `data.ok` | booleano | `true` si la capa de datos respondió. |
 | `timestamp` | texto | Fecha y hora del servidor en ISO 8601 (UTC). |
 
@@ -130,7 +130,7 @@ Todos los errores tienen la forma `{ error, code, fields? }`. La lista de códig
 curl -i -X POST http://localhost:3000/api/auth/register   -H "Content-Type: application/json"   -d '{"name":"Ana López","email":"ana@mail.com","password":"kopay2026"}'
 ```
 
-Las cuentas se guardan en memoria y se pierden al reiniciar el servicio, hasta que S3-05 conecte la base.
+Las cuentas se guardan en PostgreSQL y se conservan al reiniciar el servicio. El `accessToken` es un JWT HS256 firmado con `JWT_SECRET` que vence en 15 minutos; cada uno tiene su sesión en la base (solo el hash), así que cerrar sesión (S4-02) lo invalida aunque la firma siga vigente.
 
 La contraseña nunca se guarda en texto plano (S3-08): se guarda su hash con `scrypt`, que viene en Node, con una sal aleatoria por cuenta, en el formato `scrypt$N$r$p$sal$hash` (`src/services/password.service.js`). Al entrar se compara en tiempo constante. Si el correo no existe, también se compara contra un hash de relleno para que la respuesta tarde lo mismo.
 
@@ -147,19 +147,37 @@ curl -i http://localhost:3000/api/auth/me -H "Authorization: Bearer <accessToken
 
 En el Sprint 3 el `accessToken` es texto aleatorio que vence a los 900 segundos. Solo se guarda su hash SHA-256 (`token_hash` de la tabla `sessions`). S4-01 lo cambia por un JWT sin cambiar la respuesta. El middleware `src/middleware/authenticate.js` deja `req.auth.userId` para el control de roles (S4-04).
 
+### Recuperación de acceso (S4-19)
+
+1. `POST /api/auth/recover` con `{ "email" }` responde siempre `200 { message }`, exista o no la cuenta. Si existe, envía por correo un código de 6 dígitos que vence en 15 minutos. Como máximo un correo por minuto por cuenta: antes de ese minuto responde igual, pero no envía otro.
+2. `POST /api/auth/reset` con `{ "email", "code", "password" }` responde `204`. Cambia la contraseña y cierra todas las sesiones de la cuenta. Un código incorrecto, vencido o usado responde `400` con `fields.code`; después de 5 intentos fallidos, `429 TOO_MANY_ATTEMPTS`.
+
+En `development` y `test` no se envía ningún correo: el código sale en la consola del servicio.
+
+```bash
+curl -s -X POST http://localhost:3000/api/auth/recover \
+  -H "Content-Type: application/json" -d '{"email":"ana@mail.com"}'
+# En la consola: [correo de prueba, no se envió] Código de recuperación para ana@mail.com: 048213
+curl -i -X POST http://localhost:3000/api/auth/reset \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ana@mail.com","code":"048213","password":"nueva2026"}'
+```
+
+El código se guarda como HMAC-SHA256 con `JWT_SECRET` (tabla `password_resets`, migración `003`). Reglas completas en las secciones 3.7 a 3.9 del contrato.
+
 ## 5. Ambientes
 
 | `NODE_ENV` | Para qué | Necesita `.env` |
 | :--- | :--- | :--- |
 | `development` (por defecto) | Trabajar en la computadora | No |
 | `test` | Pruebas automáticas | No |
-| `production` | Servidor real | Sí: `DATABASE_URL`, `JWT_SECRET` (32 caracteres o más, distinto del ejemplo), `CORS_ORIGIN` y `BANXICO_TOKEN` (S5-06) |
+| `production` | Servidor real | Sí: `DATABASE_URL`, `JWT_SECRET` (32 caracteres o más, distinto del ejemplo), `CORS_ORIGIN`, `BANXICO_TOKEN` (S5-06), y `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` y `MAIL_FROM` para el correo de recuperación |
 
 En producción, si falta algo, el servicio no arranca y dice qué falta:
 
 ```
 $ NODE_ENV=production npm start
-Configuración de producción incompleta: falta DATABASE_URL; falta JWT_SECRET; falta CORS_ORIGIN; falta BANXICO_TOKEN.
+Configuración de producción incompleta: falta DATABASE_URL; falta JWT_SECRET; falta CORS_ORIGIN; falta SMTP_HOST; falta SMTP_PORT; falta SMTP_USER; falta SMTP_PASS; falta MAIL_FROM; falta BANXICO_TOKEN.
 ```
 
 Las variables están explicadas en [`.env.example`](.env.example).

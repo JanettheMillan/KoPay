@@ -11,6 +11,8 @@ const { createAccountantAccessService } = require('./services/accountant-access.
 const { createAuthService } = require('./services/auth.service');
 const { createExchangeRateService } = require('./services/exchange-rate.service');
 const { createHealthService } = require('./services/health.service');
+const { createMailer } = require('./services/mail.service');
+const { createRecoveryService } = require('./services/recovery.service');
 const { createSessionService } = require('./services/session.service');
 
 /**
@@ -21,13 +23,15 @@ function createApp({
   config = loadConfig(),
   store = createMemoryStore(),
   now,
+  mailer = createMailer({ config }),
   exchangeRateService = createExchangeRateService({ token: config.banxicoToken }),
 } = {}) {
-  const sessionService = createSessionService({ store, now });
+  const sessionService = createSessionService({ store, now, secret: config.jwtSecret });
   const services = {
     healthService: createHealthService({ store, config }),
     sessionService,
     authService: createAuthService({ store, sessionService }),
+    recoveryService: createRecoveryService({ store, mailer, secret: config.jwtSecret, now }),
     accountantAccessService: createAccountantAccessService({ store }),
     exchangeRateService,
     // El rol se lee de la base en cada petición (S4-04).

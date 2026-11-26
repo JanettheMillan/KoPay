@@ -285,6 +285,12 @@ describe('Configuración de BANXICO_TOKEN', () => {
     JWT_SECRET: 'x'.repeat(48),
     CORS_ORIGIN: 'https://kopay.example.com',
     BANXICO_TOKEN: TOKEN,
+    // Correo de recuperación, obligatorio en producción desde S4-19.
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_PORT: '587',
+    SMTP_USER: 'kopay@example.com',
+    SMTP_PASS: 'clave-smtp-secreta',
+    MAIL_FROM: 'KoPay <kopay@example.com>',
   };
 
   test('FUT-10 · HU-35 · producción exige BANXICO_TOKEN válido y no muestra su valor', () => {

@@ -2,10 +2,19 @@
 
 const { createApp } = require('./app');
 const { describeConfig, loadConfig, loadEnvFile } = require('./config');
+const { createPgStore } = require('./data/pg-store');
+const { createMemoryStore } = require('./data/store');
 
 /** Abre el puerto y devuelve el servidor HTTP; falla si no puede. */
 function start(config = loadConfig()) {
-  const app = createApp({ config });
+  // Las cuentas, sesiones y permisos viven en PostgreSQL (DATABASE_URL),
+  // así no se pierden al reiniciar (S4-01). loadConfig siempre trae
+  // DATABASE_URL; sin ella (pruebas con configuración manual) se usa la
+  // memoria.
+  const store = config.databaseUrl
+    ? createPgStore({ databaseUrl: config.databaseUrl })
+    : createMemoryStore();
+  const app = createApp({ config, store });
   return new Promise((resolve, reject) => {
     const server = app.listen(config.port);
     server.once('listening', () => {
