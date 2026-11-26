@@ -9,12 +9,14 @@ import 'providers/debt_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/income_provider.dart';
 import 'providers/movement_provider.dart';
+import 'providers/session_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/movements_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/auth_api.dart';
 import 'services/http_auth_api.dart';
+import 'services/session_store.dart';
 import 'utils/app_strings.dart';
 import 'utils/app_colors.dart';
 import 'widgets/add_income_sheet.dart';
@@ -38,6 +40,14 @@ void main() {
         Provider<AuthApi>(
           create: (_) => HttpAuthApi(),
           dispose: (_, api) => (api as HttpAuthApi).close(),
+        ),
+        // Sesión guardada en el dispositivo y renovación (S4-08). La
+        // navegación con sesión (S3-12) decide qué pantalla abrir.
+        ChangeNotifierProvider(
+          create: (context) => SessionProvider(
+            api: context.read<AuthApi>(),
+            store: SecureSessionStore(),
+          )..restore(),
         ),
         ChangeNotifierProvider(create: (_) => MovementProvider()..load()),
         ChangeNotifierProvider(create: (_) => IncomeProvider()..load()),

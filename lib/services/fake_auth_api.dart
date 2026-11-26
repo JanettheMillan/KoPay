@@ -9,7 +9,8 @@ import 'auth_api.dart';
 ///
 /// Aplica las mismas reglas que Node: valida todos los campos a la vez,
 /// guarda el correo normalizado, rechaza un correo repetido con
-/// `409 EMAIL_TAKEN` y responde el login y `me` como §3.2 y §3.3. Las pruebas pueden simular un fallo con
+/// `409 EMAIL_TAKEN` y responde el login, `me`, la renovación con
+/// rotación y el cierre de sesión como §3.2 a §3.5. Las pruebas pueden simular un fallo con
 /// [failNextWith] y una espera con [delay].
 class FakeAuthApi implements AuthApi {
   FakeAuthApi({this.delay = Duration.zero, DateTime Function()? now})
@@ -25,6 +26,9 @@ class FakeAuthApi implements AuthApi {
 
   /// Token de acceso → correo de la sesión.
   final Map<String, String> _sessions = {};
+
+  /// Token de renovación → correo y token de acceso de esa sesión.
+  final Map<String, ({String email, String access})> _refreshTokens = {};
   Object? _nextError;
 
   /// Cuentas registradas, por correo normalizado.
@@ -104,13 +108,47 @@ class FakeAuthApi implements AuthApi {
         'Correo o contraseña incorrectos',
       );
     }
-    final token = _uuid();
-    _sessions[token] = normalized;
+    return _openSession(normalized);
+  }
+
+  @override
+  Future<AuthSession> refresh(String refreshToken) async {
+    await _beforeAnswer();
+    final pair = _refreshTokens.remove(refreshToken);
+    if (pair == null || !_accounts.containsKey(pair.email)) {
+      throw const ApiException(
+        401,
+        ApiErrorCode.unauthenticated,
+        'Inicia sesión para continuar',
+      );
+    }
+    // Rotación (§3.5): el token de acceso de esa sesión también deja de
+    // servir. Las sesiones de otros dispositivos siguen abiertas.
+    _sessions.remove(pair.access);
+    return _openSession(pair.email);
+  }
+
+  @override
+  Future<void> logout(String accessToken) async {
+    await _beforeAnswer();
+    // Cierra solo esa sesión (§3.4).
+    _sessions.remove(accessToken);
+    _refreshTokens.removeWhere((_, pair) => pair.access == accessToken);
+  }
+
+  /// Abre una sesión con tokens nuevos, como el login y la renovación.
+  AuthSession _openSession(String email) {
+    final access = _uuid();
+    final refresh = _uuid();
+    _sessions[access] = email;
+    _refreshTokens[refresh] = (email: email, access: access);
     return AuthSession(
-      accessToken: token,
+      accessToken: access,
       tokenType: 'Bearer',
       expiresIn: 900,
-      user: user,
+      user: _accounts[email]!,
+      refreshToken: refresh,
+      refreshExpiresIn: 2592000,
     );
   }
 

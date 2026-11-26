@@ -94,6 +94,30 @@ class AuthUser {
     role: map['role'] as String,
     createdAt: DateTime.parse(map['createdAt'] as String),
   );
+
+  /// Mapa con los mismos nombres que la API, para guardar la cuenta en el
+  /// dispositivo junto con la sesión (S4-08). `fromMap(toMap())` devuelve
+  /// la misma cuenta (UT-49).
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
+    'email': email,
+    'role': role,
+    'createdAt': createdAt.toUtc().toIso8601String(),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is AuthUser &&
+      other.id == id &&
+      other.name == name &&
+      other.email == email &&
+      other.role == role &&
+      other.createdAt.isAtSameMomentAs(createdAt);
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, email, role, createdAt.millisecondsSinceEpoch);
 }
 
 /// Sesión que devuelve el login (§3.2). La app guarda [accessToken] sin
@@ -155,4 +179,17 @@ abstract class AuthApi {
   /// Lanza [ApiException] (`UNAUTHENTICATED` si el token no sirve,
   /// `INTERNAL`, `UNAVAILABLE`) o [NetworkException].
   Future<AuthUser> me(String accessToken);
+
+  /// `POST /api/auth/refresh` (§3.5). Devuelve una sesión con los dos
+  /// tokens **nuevos**: el [refreshToken] usado y el token de acceso
+  /// anterior dejan de servir. Lanza [ApiException] (`UNAUTHENTICATED` si
+  /// venció, ya se usó o la sesión se cerró; `VALIDATION_FAILED`,
+  /// `INTERNAL`, `UNAVAILABLE`) o [NetworkException].
+  Future<AuthSession> refresh(String refreshToken);
+
+  /// `POST /api/auth/logout` (§3.4). Cierra en el servidor la sesión de
+  /// [accessToken]; la API responde `204` aunque el token ya no sirva.
+  /// Puede lanzar [ApiException] o [NetworkException]: quien llama borra la
+  /// sesión guardada de todos modos.
+  Future<void> logout(String accessToken);
 }
