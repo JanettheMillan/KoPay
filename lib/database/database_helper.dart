@@ -22,7 +22,8 @@ class DatabaseHelper {
   /// 3: deudas (S2-08).
   /// 4: pagos asociados a tarjetas y deudas en `movements` (S2-09).
   /// 5: relación con los movimientos de la API (S5-07).
-  static const int version = 5;
+  /// 6: relación con los ingresos de la API (S5-08).
+  static const int version = 6;
 
   static const String movementsTable = 'movements';
   static const String incomesTable = 'incomes';
@@ -32,6 +33,9 @@ class DatabaseHelper {
 
   /// Qué movimiento local corresponde a cuál de la API (S5-07).
   static const String movementRemoteTable = 'movement_remote';
+
+  /// Qué ingreso local corresponde a cuál de la API (S5-08).
+  static const String incomeRemoteTable = 'income_remote';
 
   /// Categoría con la que se guardan los pagos de tarjeta y de deuda.
   static const String paymentCategory = 'Pago';
@@ -133,6 +137,7 @@ class DatabaseHelper {
     _createCardsTable(batch);
     _createDebtsTable(batch);
     _createMovementRemoteTable(batch);
+    _createIncomeRemoteTable(batch);
 
     await batch.commit(noResult: true);
   }
@@ -144,6 +149,7 @@ class DatabaseHelper {
     if (oldVersion < 3) _createDebtsTable(batch);
     if (oldVersion < 4) _addPaymentColumns(batch);
     if (oldVersion < 5) _createMovementRemoteTable(batch);
+    if (oldVersion < 6) _createIncomeRemoteTable(batch);
     await batch.commit(noResult: true);
   }
 
@@ -155,6 +161,19 @@ class DatabaseHelper {
     batch.execute('''
       CREATE TABLE $movementRemoteTable (
         movement_id INTEGER PRIMARY KEY,
+        remote_id TEXT NOT NULL UNIQUE,
+        version INTEGER NOT NULL CHECK (version > 0)
+      )
+    ''');
+  }
+
+  /// Relación entre un ingreso local y el de la API (S5-08), igual que
+  /// [movementRemoteTable]: sin fila aquí, el ingreso solo existe en el
+  /// teléfono. Tabla aparte para no cambiar `Income` ni el respaldo XLSX.
+  static void _createIncomeRemoteTable(Batch batch) {
+    batch.execute('''
+      CREATE TABLE $incomeRemoteTable (
+        income_id INTEGER PRIMARY KEY,
         remote_id TEXT NOT NULL UNIQUE,
         version INTEGER NOT NULL CHECK (version > 0)
       )
@@ -410,10 +429,104 @@ class DatabaseHelper {
     );
   }
 
-  /// Borra el ingreso. Devuelve cuántas filas se borraron.
+  /// Borra el ingreso y su relación con la API, si tiene. Devuelve
+  /// cuántos ingresos se borraron.
   Future<int> deleteIncome(int id) async {
     final db = await database;
-    return db.delete(incomesTable, where: 'id = ?', whereArgs: [id]);
+    return db.transaction((txn) async {
+      await txn.delete(
+        incomeRemoteTable,
+        where: 'income_id = ?',
+        whereArgs: [id],
+      );
+      return txn.delete(incomesTable, where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  // ── Ingresos de la API (S5-08) ───────────────────────────────
+
+  /// `id` en el servidor y versión del ingreso local [incomeId], o `null`
+  /// si solo existe en el teléfono.
+  Future<({String remoteId, int version})?> getIncomeRemote(
+    int incomeId,
+  ) async {
+    final db = await database;
+    final rows = await db.query(
+      incomeRemoteTable,
+      where: 'income_id = ?',
+      whereArgs: [incomeId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return (
+      remoteId: rows.first['remote_id'] as String,
+      version: rows.first['version'] as int,
+    );
+  }
+
+  /// Guarda o actualiza la relación de [incomeId] con el servidor.
+  Future<void> setIncomeRemote(
+    int incomeId, {
+    required String remoteId,
+    required int version,
+  }) async {
+    final db = await database;
+    await db.insert(incomeRemoteTable, {
+      'income_id': incomeId,
+      'remote_id': remoteId,
+      'version': version,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Ingresos que solo existen en el teléfono (sin relación con la API),
+  /// del más antiguo al más reciente.
+  Future<List<Income>> getLocalOnlyIncomes() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT i.* FROM $incomesTable i
+      WHERE i.id NOT IN (SELECT income_id FROM $incomeRemoteTable)
+      ORDER BY i.date ASC, i.id ASC
+    ''');
+    return rows.map(Income.fromMap).toList();
+  }
+
+  /// Reemplaza la copia local de los ingresos de la API por [remote], en
+  /// una sola transacción, para que Inicio no los cuente dos veces. Los
+  /// que existen solo en el teléfono se conservan.
+  Future<void> replaceRemoteIncomes(
+    List<({String remoteId, int version, Income income})> remote,
+  ) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await _deleteRemoteIncomes(txn);
+      for (final r in remote) {
+        final id = await txn.insert(
+          incomesTable,
+          r.income.toMap()..remove('id'),
+        );
+        await txn.insert(incomeRemoteTable, {
+          'income_id': id,
+          'remote_id': r.remoteId,
+          'version': r.version,
+        });
+      }
+    });
+  }
+
+  /// Borra la copia local de los ingresos de la API (al cerrar sesión o
+  /// cambiar de cuenta), para que otra cuenta en el mismo teléfono no los
+  /// vea. Los que existen solo en el teléfono se quedan.
+  Future<void> clearRemoteIncomes() async {
+    final db = await database;
+    await db.transaction(_deleteRemoteIncomes);
+  }
+
+  static Future<void> _deleteRemoteIncomes(Transaction txn) async {
+    await txn.rawDelete('''
+      DELETE FROM $incomesTable
+      WHERE id IN (SELECT income_id FROM $incomeRemoteTable)
+    ''');
+    await txn.delete(incomeRemoteTable);
   }
 
   // ── Tarjetas ─────────────────────────────────────────────────
@@ -730,6 +843,7 @@ class DatabaseHelper {
     cardsTable,
     debtsTable,
     movementRemoteTable,
+    incomeRemoteTable,
   ];
 
   /// Borra todos los registros de [financialTables] en una sola

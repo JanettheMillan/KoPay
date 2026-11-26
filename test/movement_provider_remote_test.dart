@@ -398,7 +398,7 @@ void main() {
     expect(movements.movements, isEmpty);
   });
 
-  test('REM-14 · HU-01 · una base versión 4 se migra a la 5 sin perder '
+  test('REM-14 · HU-01 · una base versión 4 se migra a la actual sin perder '
       'movimientos y todos quedan como solo del teléfono', () async {
     // Base como la dejó S2-09 (versión 4), con un gasto.
     await db.close();
@@ -429,7 +429,8 @@ void main() {
     db = DatabaseHelper.withFactory(databaseFactoryFfi, path);
     final base = await db.database;
 
-    expect(await base.getVersion(), 5);
+    // S5-08 subió la base a la versión 6 (ingresos de la API).
+    expect(await base.getVersion(), DatabaseHelper.version);
     expect((await db.getMovements()).single.description, 'Café');
     expect((await db.getLocalOnlyMovements()).single.description, 'Café');
   });
