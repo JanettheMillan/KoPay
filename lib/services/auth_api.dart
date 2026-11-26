@@ -18,6 +18,8 @@ class ApiErrorCode {
   static const tooManyAttempts = 'TOO_MANY_ATTEMPTS';
   static const internal = 'INTERNAL';
   static const unavailable = 'UNAVAILABLE';
+  static const notFound = 'NOT_FOUND';
+  static const forbidden = 'FORBIDDEN';
 }
 
 /// Respuesta de error de la API: `{ error, code, fields? }`.

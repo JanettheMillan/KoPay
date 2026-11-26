@@ -78,6 +78,8 @@ flowchart LR
 
 ### Consentimiento
 
+> **Implementado (S4-11, [#77](https://github.com/JanettheMillan/KoPay/issues/77)):** `lib/screens/accountants_screen.dart` (lista, Revocar y su confirmación) y `lib/widgets/authorize_accountant_sheet.dart` (correo y diálogo de consentimiento), con `lib/services/accountants_api.dart` contra `/api/accountants` (contrato §3.6). Se abre desde Ajustes → Contador → Contadores autorizados, solo con sesión de usuario y detrás de `RoleGuard` (S4-09). Como la API no tiene una búsqueda previa, el correo se comprueba al confirmar: si no hay contador, el error aparece bajo el campo y no se crea nada. Pruebas: `test/accountants_screen_test.dart` (ACC-01 a ACC-09) e `integration_test/s4_11_contadores_test.dart`.
+
 1. En Ajustes → Contadores autorizados, el usuario toca **Autorizar contador**.
 2. Escribe el correo del contador. Si no existe una cuenta de contador con ese correo, se muestra un error y no se crea nada.
 3. Un diálogo resume el permiso: **quién** lo recibe, **qué** puede ver (resumen e historial), que es de **solo lectura** y que se puede **revocar** en cualquier momento.

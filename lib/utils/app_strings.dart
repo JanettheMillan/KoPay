@@ -137,6 +137,23 @@ class AppStrings {
     required this.hidePassword,
     required this.createAccount,
     required this.haveAccount,
+    required this.accountantsTitle,
+    required this.accountantsSubtitle,
+    required this.accountantsEmpty,
+    required this.authorizeAccountant,
+    required this.accountantEmailLabel,
+    required this.accountantEmailHint,
+    required this.continueLabel,
+    required this.authorizeConfirmTitle,
+    required this.authorizeConfirmBody,
+    required this.confirm,
+    required this.accountantAuthorized,
+    required this.grantedOn,
+    required this.revoke,
+    required this.revokeTitle,
+    required this.revokeBody,
+    required this.accessRevoked,
+    required this.retry,
   });
 
   final String navHome;
@@ -287,6 +304,24 @@ class AppStrings {
   final String hidePassword;
   final String createAccount;
   final String haveAccount;
+  // Contadores autorizados (S4-11, HU-38, HU-41).
+  final String accountantsTitle;
+  final String accountantsSubtitle;
+  final String accountantsEmpty;
+  final String authorizeAccountant;
+  final String accountantEmailLabel;
+  final String accountantEmailHint;
+  final String continueLabel;
+  final String authorizeConfirmTitle;
+  final String authorizeConfirmBody;
+  final String confirm;
+  final String accountantAuthorized;
+  final String grantedOn;
+  final String revoke;
+  final String revokeTitle;
+  final String revokeBody;
+  final String accessRevoked;
+  final String retry;
 
   static const AppStrings es = AppStrings._(
     navHome: 'Inicio',
@@ -425,6 +460,25 @@ class AppStrings {
     hidePassword: 'Ocultar contraseña',
     createAccount: 'Crear cuenta',
     haveAccount: '¿Ya tienes cuenta? Inicia sesión',
+    accountantsTitle: 'Contadores autorizados',
+    accountantsSubtitle:
+        'Pueden ver tu resumen y tu historial, sin cambiar nada.',
+    accountantsEmpty: 'Todavía no autorizas a ningún contador.',
+    authorizeAccountant: 'Autorizar contador',
+    accountantEmailLabel: 'Correo del contador',
+    accountantEmailHint: 'contador@correo.com',
+    continueLabel: 'Continuar',
+    authorizeConfirmTitle: '¿Autorizar a {a}?',
+    authorizeConfirmBody:
+        'Podrá ver tu resumen del mes y tu historial de movimientos. Es solo lectura: no podrá crear, editar ni borrar nada. Puedes retirarle el acceso cuando quieras.',
+    confirm: 'Confirmar',
+    accountantAuthorized: 'Contador autorizado',
+    grantedOn: 'Autorizado el {a}',
+    revoke: 'Revocar',
+    revokeTitle: '¿Retirar el acceso a {a}?',
+    revokeBody: 'Desde este momento no podrá ver tu resumen ni tu historial.',
+    accessRevoked: 'Acceso retirado',
+    retry: 'Reintentar',
   );
 
   static const AppStrings en = AppStrings._(
@@ -559,6 +613,26 @@ class AppStrings {
     hidePassword: 'Hide password',
     createAccount: 'Create account',
     haveAccount: 'Already have an account? Sign in',
+    accountantsTitle: 'Authorized accountants',
+    accountantsSubtitle:
+        'They can see your summary and history, without changing anything.',
+    accountantsEmpty: "You haven't authorized any accountant yet.",
+    authorizeAccountant: 'Authorize accountant',
+    accountantEmailLabel: "Accountant's email",
+    accountantEmailHint: 'accountant@email.com',
+    continueLabel: 'Continue',
+    authorizeConfirmTitle: 'Authorize {a}?',
+    authorizeConfirmBody:
+        'They will see your monthly summary and your movement history. It is read-only: they cannot create, edit or delete anything. You can revoke access at any time.',
+    confirm: 'Confirm',
+    accountantAuthorized: 'Accountant authorized',
+    grantedOn: 'Authorized on {a}',
+    revoke: 'Revoke',
+    revokeTitle: 'Revoke access for {a}?',
+    revokeBody:
+        'From now on they will not be able to see your summary or history.',
+    accessRevoked: 'Access revoked',
+    retry: 'Try again',
   );
 
   /// Reemplaza `{a}`, `{b}`, `{c}`, `{d}` de [template] por [values].

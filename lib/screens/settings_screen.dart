@@ -9,14 +9,18 @@ import '../providers/debt_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/income_provider.dart';
 import '../providers/movement_provider.dart';
+import '../providers/session_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/accountants_api.dart';
 import '../services/backup_platform.dart';
 import '../services/backup_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
+import '../utils/route_policy.dart';
 import '../widgets/ui_kit.dart';
 import 'accountant_clients_screen.dart';
+import 'accountants_screen.dart';
 
 /// Ajustes: moneda e idioma (HU-24, HU-25), exportar XLSX e importar
 /// CSV (HU-26, HU-27) y borrar datos (HU-28).
@@ -285,6 +289,11 @@ class SettingsScreen extends StatelessWidget {
     final settings = context.watch<SettingsProvider?>();
     final currency = settings?.currency ?? FormatUtils.currency;
     final language = settings?.language ?? FormatUtils.language;
+    final role = context.select<SessionProvider?, String?>(
+      (p) => p?.user?.role,
+    );
+    final canManageAccountants =
+        role == AppRole.user && context.read<AccountantsApi?>() != null;
 
     return ColoredBox(
       color: AppColors.bg,
@@ -376,12 +385,28 @@ class SettingsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               clipBehavior: Clip.antiAlias,
-              child: _SettingRow(
-                key: const Key('settings-accountant-preview'),
-                icon: Icons.badge_outlined,
-                label: s.accountantPreview,
-                value: s.accountantPreviewValue,
-                onTap: () => openAccountantPreview(context),
+              child: Column(
+                children: [
+                  // Solo con sesión de usuario y la API de contadores
+                  // disponible (S4-11, HU-38, HU-41).
+                  if (canManageAccountants) ...[
+                    _SettingRow(
+                      key: const Key('settings-accountants'),
+                      icon: Icons.verified_user_outlined,
+                      label: s.accountantsTitle,
+                      value: '',
+                      onTap: () => openAccountants(context),
+                    ),
+                    Divider(height: 1, indent: 56, color: AppColors.hair),
+                  ],
+                  _SettingRow(
+                    key: const Key('settings-accountant-preview'),
+                    icon: Icons.badge_outlined,
+                    label: s.accountantPreview,
+                    value: s.accountantPreviewValue,
+                    onTap: () => openAccountantPreview(context),
+                  ),
+                ],
               ),
             ),
           ],
