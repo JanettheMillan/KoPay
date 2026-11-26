@@ -12,6 +12,7 @@ Este directorio reúne el alcance, diseño, planificación, historias, pruebas y
 6. [Guía de evidencias](guia-de-evidencias.md): cómo guardar pruebas, capturas, tablero y cambios de Git sin confundir planificación con resultados.
 7. [Plantilla de registro de pruebas](plantilla-registro-pruebas.md): ficha para registrar cada caso ejecutado con fecha, responsable, resultado y evidencia.
 8. [Criterios de respaldo, importación y borrado](criterios-respaldo-importacion-borrado.md): reglas de exportar XLSX, importar CSV y borrar datos locales (S2-03).
+9. [Guía de la API](../backend/README.md): cómo iniciar la API Node.js en local, comprobar que responde y el contrato de `GET /api/health` (S3-03).
 
 ## Destino de entrega indicado por el equipo
 
