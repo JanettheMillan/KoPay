@@ -159,6 +159,16 @@ curl -i -X POST http://localhost:3000/api/auth/logout -H "Authorization: Bearer 
 
 Después de actualizar `develop`, corre `npm run migrate`: S4-02 agrega la migración `004_session_refresh.sql`.
 
+### Rutas financieras protegidas (S4-03)
+
+`/api/movements`, `/api/incomes`, `/api/cards` y `/api/debts` pasan, en orden, por:
+
+1. Sesión válida: sin token o con uno inválido, `401 UNAUTHENTICATED`.
+2. Rol `user` (`rbac.ownFinances()`): una cuenta `accountant` recibe `403 FORBIDDEN`, porque el contador no tiene finanzas propias.
+3. `bindOwner` (`src/middleware/owner.js`): deja `req.ownerId` con el id de la sesión y borra cualquier `userId`, `user_id`, `ownerId` u `owner_id` del cuerpo y la consulta. El dueño **nunca** sale de la petición.
+
+Las rutas de cada recurso se agregan en S5-01 a S5-05 con `createApp({ financeRegistrars: { movements: (router) => { … } } })`. Para leer, editar o borrar un registro por id se usa `ensureOwned(row, req.ownerId)`: si no existe o es de otra cuenta responde `404 NOT_FOUND` "No encontramos ese registro", igual en los dos casos. Mientras un recurso no tenga rutas, una cuenta `user` recibe `404`.
+
 ### Recuperación de acceso (S4-19)
 
 1. `POST /api/auth/recover` con `{ "email" }` responde siempre `200 { message }`, exista o no la cuenta. Si existe, envía por correo un código de 6 dígitos que vence en 15 minutos. Como máximo un correo por minuto por cuenta: antes de ese minuto responde igual, pero no envía otro.

@@ -5,6 +5,7 @@ const { accountantRoutes } = require('./accountants.routes');
 const { authRoutes } = require('./auth.routes');
 const { clientRoutes } = require('./clients.routes');
 const { exchangeRateRoutes } = require('./exchange-rates.routes');
+const { financeRoutes } = require('./finances.routes');
 const { healthRoutes } = require('./health.routes');
 
 /**
@@ -18,6 +19,8 @@ function apiRoutes(services) {
   router.use('/accountants', accountantRoutes(services));
   router.use('/clients', clientRoutes(services));
   router.use('/exchange-rates', exchangeRateRoutes(services));
+  // Movimientos, ingresos, tarjetas y deudas propios (S4-03; rutas en S5-01 a S5-05).
+  router.use(financeRoutes(services, services.financeRegistrars));
   return router;
 }
 

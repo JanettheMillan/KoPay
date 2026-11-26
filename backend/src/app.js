@@ -25,9 +25,13 @@ function createApp({
   now,
   mailer = createMailer({ config }),
   exchangeRateService = createExchangeRateService({ token: config.banxicoToken }),
+  // Rutas de cada recurso financiero (S5-01 a S5-05), detrás de la
+  // protección de S4-03: { movements: (router) => { … }, … }.
+  financeRegistrars = {},
 } = {}) {
   const sessionService = createSessionService({ store, now, secret: config.jwtSecret });
   const services = {
+    financeRegistrars,
     healthService: createHealthService({ store, config }),
     sessionService,
     authService: createAuthService({ store, sessionService }),
