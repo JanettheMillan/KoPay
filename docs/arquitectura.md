@@ -207,7 +207,7 @@ La sincronización prevista mantendrá SQLite local y enviará los datos a la AP
 | :--- | :--- | :--- |
 | Autenticación | Registro, inicio, renovación, cierre y recuperación por correo. | Configurar remitente y verificar todos los flujos. |
 | Configuración por ambientes | Variables `DATABASE_URL`, `JWT_SECRET` y `API_URL`. | Definir valores por ambiente, proteger secretos y verificar la configuración de entrega. |
-| Base de datos administrada | PostgreSQL en Neon, con migraciones y datos separados por cuenta. Acuerdos en [base-de-datos.md](base-de-datos.md) (S3-04). | Crear los branches por ambiente; probar migraciones (S3-05) y aislamiento (S4-03). |
+| Base de datos administrada | PostgreSQL en Railway para producción (antes Neon; cambio en S5-21, #189), con migraciones y datos separados por cuenta. Acuerdos en [base-de-datos.md](base-de-datos.md) (S3-04). | Crear los branches por ambiente; probar migraciones (S3-05) y aislamiento (S4-03). |
 | Servicio de terceros | Consulta informativa de tipos de cambio desde Node.js. | Comprobar respuesta real, errores, fecha y visualización en un dispositivo. |
 | Vista de contador | Pantallas propias, solicitudes de enlace y rutas de consulta autorizada. | Verificar permisos, revocación y datos visibles con cuentas de prueba. |
 | APK final | Compilación Android de entrega. | Instalar en un dispositivo y registrar la evidencia. |

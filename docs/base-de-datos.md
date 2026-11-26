@@ -11,6 +11,7 @@ Este documento fija cuatro acuerdos: tecnología, conexión, aislamiento por usu
 | :--- | :--- | :--- |
 | Motor | **PostgreSQL 16** | Ya está en la arquitectura objetivo ([arquitectura.md §6](arquitectura.md)) y en `DATABASE_URL` de S3-02. Tiene transacciones, llaves foráneas, `CHECK` y `numeric` para dinero. |
 | Servicio administrado | **Neon** (plan gratuito), región `AWS us-east-1` | No caduca como otros planes gratuitos. Ofrece *branches*, que son copias separadas de la base, una por ambiente, sin pagar otro servidor. Entrega la conexión con TLS y un *pooler* incluido. |
+| **Cambio en S5-21 (#189)** | **Producción en Railway Postgres** | La API se despliega en Railway, así que la base de producción vive en el mismo proyecto (servicio `Postgres` de `kopay`). La API la toma con la referencia `DATABASE_URL=${{Postgres.DATABASE_URL}}`, sin copiar la cadena, y la conexión no sale de Railway. Neon queda como opción para `dev` y `test`, pero no es obligatorio: los dos usan PostgreSQL local. |
 | Alternativa descartada | Supabase | También es PostgreSQL, pero trae su propia autenticación y API REST. KoPay hace eso en Node (S3-07 a S4-06) y no queremos dos fuentes de verdad. |
 | Alternativa descartada | Render PostgreSQL | El plan gratuito borra la base a los 30 días; no llega a la entrega del 15 de diciembre. |
 | Librería de Node | `pg` (node-postgres) | Se autoriza en S3-05, que es la primera tarjeta que la usa (regla del Sprint 3 en `CLAUDE.md`). Sin ORM: consultas SQL con parámetros (`$1`, `$2`). |
@@ -31,7 +32,7 @@ La app Flutter **no** se conecta a PostgreSQL. Habla solo con la API Node. SQLit
 | :--- | :--- | :--- |
 | `development` | PostgreSQL local (`postgres://localhost:5432/kopay`, valor por defecto de S3-02) o branch `dev` de Neon | Cada integrante en su computadora. |
 | `test` | PostgreSQL local `kopay_test` (valor por defecto de S3-02) o branch `test` de Neon | `npm test`. Se borra y se vuelve a migrar en cada ejecución. |
-| `production` | Branch `main` de Neon | API desplegada y APK de entrega (S5-16). Solo se migra con un PR mergeado. |
+| `production` | Servicio `Postgres` del proyecto `kopay` en Railway (S5-21, #189) | API desplegada y APK de entrega (S5-16). Railway corre `npm run migrate` antes de cada despliegue, así que solo se migra lo que está mergeado en la rama desplegada. |
 
 Ningún ambiente comparte base con otro. Las pruebas nunca apuntan al branch `main`.
 
@@ -93,4 +94,4 @@ Estos casos se ejecutan en las tarjetas que implementan cada parte. Este documen
 ## 6. Pendientes fuera del repositorio
 
 - Crear el proyecto de Neon y los branches `dev`, `test` y `main`, y compartir la cadena de `dev`. El responsable lo registra en el issue #52 **sin** pegar la cadena.
-- Configurar `DATABASE_URL` de producción en el servicio de despliegue cuando se elija (Sprint 5).
+- ~~Configurar `DATABASE_URL` de producción en el servicio de despliegue cuando se elija (Sprint 5).~~ Hecho en Railway (#189): `DATABASE_URL=${{Postgres.DATABASE_URL}}`.
