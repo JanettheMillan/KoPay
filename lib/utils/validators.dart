@@ -1,4 +1,5 @@
 import '../models/card_model.dart';
+import '../models/debt_model.dart';
 import '../models/income_model.dart';
 import '../models/movement_model.dart';
 
@@ -12,7 +13,8 @@ class ValidationException implements Exception {
   String toString() => 'ValidationException: $message';
 }
 
-/// Reglas de validación de gastos, movimientos, ingresos y tarjetas.
+/// Reglas de validación de gastos, movimientos, ingresos, tarjetas y
+/// deudas.
 ///
 /// Los formularios usan los métodos que reciben texto para mostrar el
 /// error bajo cada campo. Los providers usan [checkMovement] y
@@ -36,6 +38,9 @@ class Validators {
   static const String emptyBank = 'Escribe el banco';
   static const String negativeAmount = 'El monto no puede ser negativo';
   static const String invalidDay = 'Elige un día entre 1 y 31';
+  static const String emptyDebtName = 'Escribe el nombre de la deuda';
+  static const String overBalance =
+      'El pago no puede ser mayor que el saldo restante';
 
   // Dígitos y, opcionalmente, punto decimal y más dígitos. Se aplica
   // después de quitar comas de miles; los decimales se cuentan aparte.
@@ -123,6 +128,28 @@ class Validators {
     if (!_validDay(card.cutDay) || !_validDay(card.paymentDay)) {
       return invalidDay;
     }
+    return null;
+  }
+
+  /// Primer error de una deuda ya construida, o `null` si es válida.
+  ///
+  /// La mensualidad y el saldo restante pueden ser cero, pero no
+  /// negativos ni mayores al máximo.
+  static String? checkDebt(DebtModel debt) {
+    if (!_required(debt.name)) return emptyDebtName;
+    for (final value in [debt.monthlyPayment, debt.remainingBalance]) {
+      if (!value.isFinite || value < 0) return negativeAmount;
+      if (value > maxAmount) return tooLarge;
+    }
+    return null;
+  }
+
+  /// Error del importe de un pago a una deuda con saldo [balance], o
+  /// `null` si es válido: mayor que cero y no mayor que el saldo.
+  static String? checkDebtPayment(double amount, double balance) {
+    if (!amount.isFinite || amount <= 0) return notPositive;
+    if (amount > maxAmount) return tooLarge;
+    if ((amount * 100).round() > (balance * 100).round()) return overBalance;
     return null;
   }
 
