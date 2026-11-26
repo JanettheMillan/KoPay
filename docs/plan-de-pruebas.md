@@ -489,10 +489,12 @@ Se ordenan primero porque representan la mayor parte del plan. Los identificador
 
 **HU-30** · Unitaria · Prioridad media
 
-- **Preparación:** AuthUser con id, correo, rol y código de contador.
-- **Acción:** Convertir con toMap y reconstruir con fromMap.
+- **Preparación:** Mapa de cuenta con id, name, email, role y createdAt.
+- **Acción:** Armar un AuthUser con fromMap y consultar sus campos e isAccountant.
 
-> **Resultado esperado:** Se conservan todos los campos.
+> **Resultado esperado:** AuthUser.fromMap conserva id, name, email, role y createdAt. isAccountant es verdadero con role `accountant` y falso con `user`.
+
+Actualizado en S3-16: el contador se autoriza por correo (S3-14).
 
 #### UT-50 · Enlace pendiente
 
