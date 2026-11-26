@@ -19,7 +19,7 @@
 9. [Datos: SQLite y PostgreSQL](#9-datos-sqlite-y-postgresql)
 10. [Seguridad](#10-seguridad)
 11. [Pruebas y evidencias](#11-pruebas-y-evidencias)
-12. [Compilación y entrega del APK](#12-compilación-y-entrega-del-apk)
+12. [Compilación y entrega del APK](#12-compilación-y-entrega-del-apk) (incluye los [modos de compilación](#modos-de-compilación))
 13. [Forma de trabajo del equipo](#13-forma-de-trabajo-del-equipo)
 14. [Problemas comunes](#14-problemas-comunes)
 15. [Documentos de referencia](#15-documentos-de-referencia)
@@ -312,7 +312,7 @@ Responsables: Rubén en S5-16 (#102), S5-18 (#104) y el despliegue (#189). Janet
 | # | Paso | Estado hoy |
 | :--- | :--- | :--- |
 | 1 | **Versión:** subir `version:` de `pubspec.yaml` en cada entrega (`1.0.0+1` → `1.1.0+2`; el número después de `+` siempre crece) y poner un tag `git tag v1.1.0`. | *Pendiente* |
-| 2 | **Identidad:** cambiar `applicationId` y `namespace` de `com.example.kopay` a uno propio (propuesta: `mx.edu.utez.kopay`, del dominio `utez.edu.mx` al revés) y `android:label` a `KoPay`, **antes** de la primera firma. | *Pendiente* |
+| 2 | **Identidad:** cambiar `applicationId` y `namespace` de `com.example.kopay` a uno propio (acordado: **`com.kodisof.kopay`**, el mismo en el `PRODUCT_BUNDLE_IDENTIFIER` de iOS). También hay que mover `MainActivity.kt` de `kotlin/com/example/kopay/` a `kotlin/com/kodisof/kopay/` y cambiar su `package`; si solo se cambia el gradle, la app se cierra al abrir porque no encuentra la Activity. Una vez firmado el primer APK ya no se cambia: un id distinto es otra app y no actualiza la anterior y `android:label` a `KoPay`, **antes** de la primera firma. | *Pendiente* |
 | 3 | **Firma:** generar el keystore con `keytool`, crear `android/key.properties` y usar `signingConfigs.release` en `android/app/build.gradle.kts`. Hoy el release se firma con la llave de debug. | *Pendiente* |
 | 4 | **Resguardo:** agregar `android/key.properties`, `*.jks` y `*.keystore` al `.gitignore`. Guardar el `.jks` fuera del repo, con respaldo, y las contraseñas en un gestor. Si se pierde la llave, no se pueden publicar actualizaciones. | *Pendiente* |
 | 5 | **Ambientes:** `config/dev.json` y `config/prod.json` con `API_URL` y compilar con `--dart-define-from-file`. En producción, `https`. | *Hecho* por Cisco, **salvo el dominio**: `config/prod.json` espera el dominio https del despliegue en Railway (#189). |
@@ -320,6 +320,23 @@ Responsables: Rubén en S5-16 (#102), S5-18 (#104) y el despliegue (#189). Janet
 | 7 | **Instalación:** `adb install -r build/app/outputs/flutter-apk/app-release.apk`. Registrar en #102 la versión, el modelo y la versión de Android, con una captura. | *Pendiente* |
 
 **APK o AAB:** el **APK** se instala directo en el teléfono y es lo que pide la entrega. El **AAB** (`flutter build appbundle --release`) solo sirve para Play Store, que genera un APK por dispositivo.
+
+### Modos de compilación
+
+Flutter compila la misma app de tres formas. El modo se elige con el comando, no en el código.
+
+| Modo | Comando | Para qué | Qué cambia |
+| :--- | :--- | :--- | :--- |
+| **Debug** | `flutter run` (por defecto) | Desarrollar y probar en el emulador o el teléfono. | Compila sobre la marcha (JIT): permite *hot reload*, muestra los avisos de errores en pantalla (por ejemplo `RenderFlex overflow`) y se conecta a las herramientas de depuración. Es más lento y pesa más. Permite `http` sin cifrar hacia la API local, porque `android/app/src/debug/AndroidManifest.xml` activa `usesCleartextTraffic`. |
+| **Profile** | `flutter run --profile` | Medir el rendimiento (cuadros por segundo, memoria) con DevTools. | Compilado y optimizado como release, pero conserva lo necesario para medir. Solo en un teléfono real, no en emulador. No se entrega. |
+| **Release** | `flutter build apk --release …` | **El APK que se instala y se entrega.** | Compilado por adelantado (AOT) y optimizado: arranca rápido y pesa menos. Sin *hot reload*, sin avisos de depuración y sin conexión a DevTools. Se firma con la llave de release (paso 3). Solo acepta `https`, por eso `config/prod.json` debe apuntar a la API publicada. |
+
+Para producción se usa siempre **release**, con estas opciones (paso 6):
+
+- `--dart-define-from-file=config/prod.json`: elige el ambiente de producción, que es la URL `https` de la API. Sin este archivo la app apunta a `http://10.0.2.2:3000`, que solo existe en el emulador.
+- `--obfuscate --split-debug-info=build/symbols`: cambia los nombres internos del código para que sea más difícil leerlo y guarda aparte los símbolos. Hay que conservar `build/symbols` de cada versión para poder leer un error que llegue de un teléfono.
+
+Si se compila en debug o sin `config/prod.json`, el APK no sirve para la entrega: no se conecta a la API publicada, va firmado con la llave de debug y es más lento.
 
 ## 13. Forma de trabajo del equipo
 
