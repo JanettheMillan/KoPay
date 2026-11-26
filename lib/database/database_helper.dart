@@ -344,10 +344,11 @@ class DatabaseHelper {
   }
 
   /// Borra la tarjeta. Devuelve cuántas filas se borraron.
-  Future<int> deleteCard(int id) async {
-    final db = await database;
-    return db.delete(cardsTable, where: 'id = ?', whereArgs: [id]);
-  }
+  ///
+  /// Sus pagos se conservan en Movimientos como historial (ese dinero sí
+  /// salió) y solo se desligan: `card_id` queda en `NULL` (S2-15).
+  Future<int> deleteCard(int id) =>
+      _deleteWithPayments(cardsTable, 'card_id', id);
 
   // ── Deudas ───────────────────────────────────────────────────
 
@@ -391,9 +392,25 @@ class DatabaseHelper {
   }
 
   /// Borra la deuda. Devuelve cuántas filas se borraron.
-  Future<int> deleteDebt(int id) async {
+  ///
+  /// Sus pagos se conservan en Movimientos como historial y solo se
+  /// desligan: `debt_id` queda en `NULL` (S2-15).
+  Future<int> deleteDebt(int id) =>
+      _deleteWithPayments(debtsTable, 'debt_id', id);
+
+  /// Borra la fila [id] de [table] y desliga sus pagos en una sola
+  /// transacción.
+  Future<int> _deleteWithPayments(String table, String column, int id) async {
     final db = await database;
-    return db.delete(debtsTable, where: 'id = ?', whereArgs: [id]);
+    return db.transaction((txn) async {
+      await txn.update(
+        movementsTable,
+        {column: null},
+        where: '$column = ?',
+        whereArgs: [id],
+      );
+      return txn.delete(table, where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   // ── Pagos (S2-09) ────────────────────────────────────────────

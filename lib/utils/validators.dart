@@ -41,6 +41,8 @@ class Validators {
   static const String emptyDebtName = 'Escribe el nombre de la deuda';
   static const String overBalance =
       'El pago no puede ser mayor que el saldo restante';
+  static const String overUsed =
+      'El pago no puede ser mayor que el saldo usado';
 
   // Dígitos y, opcionalmente, punto decimal y más dígitos. Se aplica
   // después de quitar comas de miles; los decimales se cuentan aparte.
@@ -150,6 +152,15 @@ class Validators {
     if (!amount.isFinite || amount <= 0) return notPositive;
     if (amount > maxAmount) return tooLarge;
     if ((amount * 100).round() > (balance * 100).round()) return overBalance;
+    return null;
+  }
+
+  /// Error del importe de un pago a una tarjeta con saldo usado [used],
+  /// o `null` si es válido: mayor que cero y no mayor que lo usado (HU-17).
+  static String? checkCardPayment(double amount, double used) {
+    if (!amount.isFinite || amount <= 0) return notPositive;
+    if (amount > maxAmount) return tooLarge;
+    if ((amount * 100).round() > (used * 100).round()) return overUsed;
     return null;
   }
 
