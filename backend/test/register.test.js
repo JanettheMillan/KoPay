@@ -161,6 +161,7 @@ describe('POST /api/auth/register', () => {
     const store = {
       kind: 'memory',
       ping: async () => true,
+      findUserByEmail: async () => null,
       createUser: async () => {
         throw new Error('postgres://usuario:clave@db sin conexión');
       },

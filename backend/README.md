@@ -2,7 +2,7 @@
 
 API Node.js de KoPay (Express 5). Expone la ruta de salud y el registro de cuentas. El inicio de sesión y la sincronización se agregan en las siguientes tarjetas del Sprint 3.
 
-**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-07 (registro).
+**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-07 (registro), S3-08 (credenciales).
 
 ## 1. Requisitos
 
@@ -108,7 +108,9 @@ Todos los errores tienen la forma `{ error, code, fields? }`. La lista de códig
 curl -i -X POST http://localhost:3000/api/auth/register   -H "Content-Type: application/json"   -d '{"name":"Ana López","email":"ana@mail.com","password":"kopay2026"}'
 ```
 
-Las cuentas se guardan en memoria y se pierden al reiniciar el servicio, hasta que S3-05 conecte la base. La contraseña todavía no se guarda cifrada; eso lo hace S3-08.
+Las cuentas se guardan en memoria y se pierden al reiniciar el servicio, hasta que S3-05 conecte la base.
+
+La contraseña nunca se guarda en texto plano (S3-08): se guarda su hash con `scrypt`, que viene en Node, con una sal aleatoria por cuenta, en el formato `scrypt$N$r$p$sal$hash` (`src/services/password.service.js`). Al entrar se compara en tiempo constante. Si el correo no existe, también se compara contra un hash de relleno para que la respuesta tarde lo mismo.
 
 ## 5. Ambientes
 

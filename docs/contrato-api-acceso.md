@@ -170,7 +170,7 @@ Petición `{ "refreshToken": "<texto opaco>" }`. Responde igual que el login. Si
 
 ## 5. Casos de prueba del contrato
 
-Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js` y CON-05 a CON-09 en `backend/test/register.test.js`. Los demás los automatiza la tarjeta que crea cada ruta, con el mismo identificador en el nombre de la prueba, y QA los toma en S3-16 y S3-18.
+Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js` CON-05 a CON-09 en `backend/test/register.test.js` y CON-10 en `backend/test/credentials.test.js`. Los demás los automatiza la tarjeta que crea cada ruta, con el mismo identificador en el nombre de la prueba, y QA los toma en S3-16 y S3-18.
 
 | Caso | Historia | Tarjeta | Qué se envía | Resultado esperado |
 | :--- | :--- | :--- | :--- | :--- |
