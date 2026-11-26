@@ -73,15 +73,15 @@ Cada petición del contador a `/api/clients/:userId/...` pasa por tres pasos, en
 
 ## 6. Esquema para S3-06
 
-Tabla `accountant_grants`:
+Tabla `accountant_access` (nombre acordado en [base-de-datos.md](base-de-datos.md), S3-04):
 
 | Columna | Tipo | Regla |
 | :--- | :--- | :--- |
-| `id` | entero, PK | |
-| `user_id` | FK a `users.id` | La persona que autoriza. Su rol debe ser `user`. |
-| `accountant_id` | FK a `users.id` | El contador autorizado. Su rol debe ser `accountant`. |
-| `granted_at` | fecha y hora UTC | Se fija al confirmar. |
-| `revoked_at` | fecha y hora UTC, nula | Nula mientras el permiso está vigente. |
+| `id` | `uuid`, PK, `gen_random_uuid()` | |
+| `user_id` | `uuid`, FK a `users.id`, `ON DELETE CASCADE` | La persona que autoriza. Su rol debe ser `user`. |
+| `accountant_id` | `uuid`, FK a `users.id`, `ON DELETE CASCADE` | El contador autorizado. Su rol debe ser `accountant`. |
+| `granted_at` | `timestamptz` | Se fija al confirmar. |
+| `revoked_at` | `timestamptz`, nula | Nula mientras el permiso está vigente. |
 
 - `CHECK (user_id <> accountant_id)`.
 - Índice único parcial sobre `(user_id, accountant_id)` donde `revoked_at IS NULL`: solo puede haber un permiso vigente por pareja.

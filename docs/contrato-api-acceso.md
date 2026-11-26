@@ -13,7 +13,7 @@ La forma de los errores (sección 2) ya está implementada en `backend/src/error
 - El cuerpo de petición y de respuesta es JSON (`Content-Type: application/json`), en UTF-8. Un cuerpo de más de 100 kB responde `413`.
 - Los nombres de campo van en inglés y `camelCase`. Los mensajes para la persona (`error` y `fields`) van en español.
 - Las fechas son texto ISO 8601 en UTC, por ejemplo `2026-11-26T18:30:00.000Z`.
-- Los `id` son números enteros.
+- Los `id` son texto UUID, por ejemplo `"3f8c2a1e-9b4d-4c6a-8e2f-1a2b3c4d5e6f"` (PostgreSQL `gen_random_uuid()`, ver [base-de-datos.md](base-de-datos.md)). Flutter los trata como texto opaco.
 - El correo se guarda y se compara **sin espacios al inicio o al final y en minúsculas**. `Ana@Mail.com` y `ana@mail.com` son la misma cuenta.
 - La contraseña **nunca** aparece en una respuesta, en un mensaje de error ni en la consola del servidor. Tampoco su hash.
 - Las rutas que requieren sesión reciben el token en el encabezado `Authorization: Bearer <accessToken>`.
@@ -93,7 +93,7 @@ Respuesta `201 Created`:
 ```json
 {
   "user": {
-    "id": 7,
+    "id": "3f8c2a1e-9b4d-4c6a-8e2f-1a2b3c4d5e6f",
     "name": "Ana López",
     "email": "ana@mail.com",
     "role": "user",
@@ -126,7 +126,7 @@ Respuesta `200 OK`:
   "tokenType": "Bearer",
   "expiresIn": 900,
   "user": {
-    "id": 7,
+    "id": "3f8c2a1e-9b4d-4c6a-8e2f-1a2b3c4d5e6f",
     "name": "Ana López",
     "email": "ana@mail.com",
     "role": "user",
