@@ -28,17 +28,19 @@ En verde lo agregado y en rojo lo que se quitó (`git diff` del manual entre la 
 
 ![Diferencias del manual en #213](evidencias/pizarron/3-cambio.png)
 
-## Dónde está cada punto del pizarrón en el manual
+## Cada punto del pizarrón en el manual
 
-| Pizarrón | Sección del manual |
-| :--- | :--- |
-| Versionamiento | §12, paso 1 |
-| Keystore y firma | §12, paso 3 |
-| APK vs AAB | §12, "APK o AAB" |
-| Resguardo de credenciales | §12, paso 4, y §7 |
-| Instalación del release | §12, paso 7 |
-| Configuración de ambiente adicional al dev | §7 y [`config/README.md`](../config/README.md) |
-| Modo de compilación para producción | §12, paso 6, y "Modos de compilación" (**este cambio**) |
-| Manual del proyecto integrador | Todo [`manual-del-sistema.md`](manual-del-sistema.md) |
+| Punto del pizarrón | Antes de #213 | Después de #213 | Dónde y qué dice el manual |
+| :--- | :---: | :---: | :--- |
+| **Versionamiento** | ✅ | ✅ | §12, paso 1: subir `version:` en `pubspec.yaml` (hoy `1.0.0+1`). El número después de `+` siempre crece y cada entrega lleva su `git tag`. |
+| **Keystore y firma** | ✅ | ✅ | §12, paso 3: generar la llave con `keytool`, crear `android/key.properties` y usar `signingConfigs.release` en `android/app/build.gradle.kts`. |
+| **APK vs AAB** | ✅ | ✅ | Final de §12: qué es cada uno y por qué se entrega el APK (el AAB es solo para Play Store). |
+| **Resguardo de credenciales** | ✅ | ✅ | §12, paso 4: el keystore fuera del repo, en `.gitignore`, con respaldo, y las contraseñas en un gestor. §7: `backend/.env` nunca se sube y los secretos se comparten solo por privado. |
+| **Instalación del release** | ✅ | ✅ | §12, paso 7: `adb install -r build/app/outputs/flutter-apk/app-release.apk` y qué registrar en #102 (versión, modelo, versión de Android y captura). |
+| **Manual del proyecto integrador** | ✅ | ✅ | Es el propio [`manual-del-sistema.md`](manual-del-sistema.md), con 15 secciones. Es el entregable de la integradora, ligado a #103. |
+| **Configuración de ambiente adicional al dev** | ✅ | ✅ | §7: variables de la API por ambiente; `config/dev.json`, `dev-local.json` y `prod.json` (ver [`config/README.md`](../config/README.md)); y las bases de development, test y production. |
+| **Modo de compilación para producción** | 🟡 A medias | ✅ | Antes, §12 paso 6 solo tenía el comando (`--release`, `--obfuscate` y `--dart-define-from-file=config/prod.json`), sin explicar los modos. **Ahora** la sección "Modos de compilación" explica debug, profile y release, en qué cambia cada uno y por qué la entrega es release. |
+
+Con #213, **todos los puntos del pizarrón quedan cubiertos en el manual**. Lo que sigue pendiente es la ejecución, que no es documentación: aplicar el `applicationId`, generar la llave, firmar e instalar el APK. Eso lo hace Rubén en S5-16 (#102), siguiendo estos pasos.
 
 Las capturas se generaron del historial de git (`git show` de cada versión del manual, mostrado como en GitHub), así que muestran exactamente lo que había en cada versión.
