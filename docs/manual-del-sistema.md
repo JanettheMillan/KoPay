@@ -39,7 +39,7 @@ El sistema tiene tres partes:
 
 - **App Flutter** (`lib/`): las pantallas. Guarda los datos en el teléfono con SQLite.
 - **API Node.js** (`backend/`): cuentas, sesiones, roles, permisos del contador, recuperación de acceso y tipo de cambio.
-- **PostgreSQL**: la base de la API. En producción será Neon ([base-de-datos.md](base-de-datos.md)).
+- **PostgreSQL**: la base de la API. En local corre en Docker. En producción, la API y la base van en **Railway** (#189, a cargo de Rubén).
 
 Las 42 historias de usuario están en [historias-de-usuario.md](historias-de-usuario.md) y las 97 actividades en el [backlog](backlog-desarrollo-desde-cero.md).
 
@@ -47,14 +47,14 @@ Las 42 historias de usuario están en [historias-de-usuario.md](historias-de-usu
 
 | Módulo | Historias | Estado en `develop` |
 | :--- | :--- | :--- |
-| Gastos, entradas, ingresos, historial, resumen del mes | HU-01 a HU-09, HU-29 | ✅ Funciona con SQLite. Eliminar con confirmación en revisión (#185, PR #190). |
+| Gastos, entradas, ingresos, historial, resumen del mes | HU-01 a HU-09, HU-29 | ✅ Funciona con SQLite. Eliminar con confirmación (#185). El resumen separa los pagos de los gastos (HU-09, #193). |
 | Categorías | HU-10 a HU-12 | ✅ Selector con búsqueda, alta, renombrado y borrado. |
 | Tarjetas | HU-13 a HU-17 | ✅ Alta, detalle, edición, borrado y pagos. |
 | Deudas | HU-19 a HU-22 | ✅ Alta, detalle, edición, borrado, pagos y liquidación. |
 | Próximos pagos | HU-18, HU-23 | ✅ Cálculo (S2-12). La pantalla depende de S5-11. |
 | Moneda, idioma, respaldo XLSX, importación CSV, borrar datos | HU-24 a HU-28 | ✅ En Ajustes. |
 | Registro de cuenta | HU-30 | ✅ API (S3-07, S3-08) y pantalla Flutter (S3-10). |
-| Inicio y cierre de sesión, renovación | HU-31, HU-33 | ✅ API con JWT y renovación (S3-09, S4-01, S4-02). Cliente HTTP en Flutter (S4-07). *Pendiente:* pantalla de login (S3-11) y navegación con sesión (S3-12). |
+| Inicio y cierre de sesión, renovación | HU-31, HU-33 | ✅ API con JWT y renovación (S3-09, S4-01, S4-02). Cliente HTTP y sesión guardada en Flutter (S4-07, S4-08). *Pendiente:* pantalla de login (S3-11) y navegación con sesión (S3-12). |
 | Recuperar acceso | HU-32 | ✅ API (S4-19). *Pendiente:* pantalla (S4-20). |
 | Protección por cuenta y roles | HU-34, HU-37 | ✅ RBAC en la API (S4-04). *Pendiente:* rutas financieras protegidas (S4-03) y guardas en Flutter (S4-09). |
 | Autorizar, revocar y consultar contador | HU-38 a HU-42 | ✅ API (S3-06, S4-05, S4-06). Maqueta Flutter con datos de ejemplo (S2-19). *Pendiente:* pantallas reales (S4-11, S4-12, S5-12) y consulta financiera (S5-03). |
@@ -161,7 +161,8 @@ Hoy es una **maqueta** (S2-19): Clientes autorizados → Resumen del mes → His
 - **Pagos:** no pueden ser mayores que el saldo usado de la tarjeta ni que el saldo restante de la deuda. Un pago es un movimiento `type = payment` ligado a su tarjeta o deuda.
 - **Estado de deuda:** saldo cero = **Pagada**; mayor que cero = **Pendiente**; pendiente con vencimiento anterior a hoy = **Vencida**.
 - **Borrar tarjeta o deuda:** sus pagos se conservan en Movimientos y solo se desligan.
-- **Pendientes anotados para el cierre del Sprint 2 (#18):** editar o borrar un pago no devuelve el saldo, y `expensesForMonth` cuenta los pagos como gastos.
+- **Resumen del mes (HU-09):** saldo = ingresos − gastos − pagos. Los pagos de tarjeta o deuda aparecen en su propia tarjeta **Pagos** y no se cuentan como gastos (#193).
+- **Pendiente anotado para el cierre del Sprint 2 (#18):** editar o borrar un pago no devuelve el saldo a su tarjeta o deuda. Por eso hoy un pago no ofrece Eliminar.
 
 ## 6. Instalación y ejecución local
 
@@ -210,7 +211,7 @@ curl -i http://localhost:3000/api/health
 | :--- | :--- | :--- |
 | `NODE_ENV` | `development`, `test` o `production`. | `production` |
 | `PORT` | Puerto HTTP (3000 si está vacío). | Lo da el servicio |
-| `DATABASE_URL` | Conexión a PostgreSQL. | Obligatoria (Neon, con `sslmode=require`) |
+| `DATABASE_URL` | Conexión a PostgreSQL. | Obligatoria. En Railway es la referencia `${{Postgres.DATABASE_URL}}` (#189) |
 | `JWT_SECRET` | Firma de los tokens. | Obligatoria, de 32 caracteres o más y distinta del ejemplo |
 | `CORS_ORIGIN` | Orígenes permitidos. | Obligatoria, sin `*` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Correo de recuperación. | Obligatorias. En dev y test no se envía nada: el código sale en la consola |
@@ -226,9 +227,9 @@ La URL de la API se elige **al compilar** con `--dart-define=API_URL=…` (`lib/
 
 | Ambiente | Base |
 | :--- | :--- |
-| `development` | PostgreSQL local `kopay` o branch `dev` de Neon |
-| `test` | PostgreSQL local `kopay_test` o branch `test` de Neon; las pruebas la borran y la vuelven a migrar |
-| `production` | Branch `main` de Neon; solo se migra con PR mergeado |
+| `development` | PostgreSQL local `kopay` (Docker) |
+| `test` | PostgreSQL local `kopay_test`; las pruebas la borran y la vuelven a migrar |
+| `production` | Railway Postgres (#189). `npm run migrate` corre antes de cada despliegue; solo se despliega lo que ya está mergeado |
 
 ## 8. API Node.js
 
@@ -287,7 +288,7 @@ Las tablas financieras remotas (`movements`, `incomes`, `cards`, `debts`, `setti
 - **Login:** si el correo no existe o la contraseña no coincide, la respuesta es la misma, para no revelar qué correos tienen cuenta.
 - **Roles:** el rol se lee de la base en cada petición, nunca de lo que mande la app (S4-04). El contador solo lee, y solo con un permiso vigente que se revisa en cada consulta (S4-06).
 - **Aislamiento:** toda consulta filtra por el `user_id` de la sesión. Un id de otra cuenta responde igual que uno inexistente.
-- **Secretos fuera del repo:** `.env`, cadenas de Neon, claves SMTP, token de Banxico y, para el APK, el keystore y `key.properties` (sección 12).
+- **Secretos fuera del repo:** `.env`, la cadena de la base de producción, las claves SMTP, token de Banxico y, para el APK, el keystore y `key.properties` (sección 12).
 
 ## 11. Pruebas y evidencias
 
@@ -305,15 +306,15 @@ Las tablas financieras remotas (`movements`, `incomes`, `cards`, `debts`, `setti
 
 ## 12. Compilación y entrega del APK
 
-Responsable: S5-16 (#102). Esta sección resume lo que falta para un release correcto. El detalle paso a paso irá en `docs/manual-release.md`.
+Responsables: Rubén en S5-16 (#102), S5-18 (#104) y el despliegue (#189). Janette guarda el respaldo de la llave de firma. Cisco hace los archivos de ambiente. GleipM liga las evidencias a la versión (S5-15). Esta sección resume lo que falta para un release correcto. El detalle paso a paso irá en `docs/manual-release.md`.
 
 | # | Paso | Estado hoy |
 | :--- | :--- | :--- |
 | 1 | **Versión:** subir `version:` de `pubspec.yaml` en cada entrega (`1.0.0+1` → `1.1.0+2`; el número después de `+` siempre crece) y poner un tag `git tag v1.1.0`. | *Pendiente* |
-| 2 | **Identidad:** cambiar `applicationId` y `namespace` de `com.example.kopay` a uno propio (por ejemplo `mx.utez.kopay`) y `android:label` a `KoPay`, **antes** de la primera firma. | *Pendiente* |
+| 2 | **Identidad:** cambiar `applicationId` y `namespace` de `com.example.kopay` a uno propio (propuesta: `mx.edu.utez.kopay`, del dominio `utez.edu.mx` al revés) y `android:label` a `KoPay`, **antes** de la primera firma. | *Pendiente* |
 | 3 | **Firma:** generar el keystore con `keytool`, crear `android/key.properties` y usar `signingConfigs.release` en `android/app/build.gradle.kts`. Hoy el release se firma con la llave de debug. | *Pendiente* |
 | 4 | **Resguardo:** agregar `android/key.properties`, `*.jks` y `*.keystore` al `.gitignore`. Guardar el `.jks` fuera del repo, con respaldo, y las contraseñas en un gestor. Si se pierde la llave, no se pueden publicar actualizaciones. | *Pendiente* |
-| 5 | **Ambientes:** `config/dev.json` y `config/prod.json` con `API_URL` y compilar con `--dart-define-from-file`. En producción, `https`. | *Pendiente*: falta la URL pública de la API (despliegue) |
+| 5 | **Ambientes:** `config/dev.json` y `config/prod.json` con `API_URL` y compilar con `--dart-define-from-file`. En producción, `https`. | *Pendiente*: Cisco. La URL sale del despliegue en Railway (#189) |
 | 6 | **Build de producción:** `flutter build apk --release --dart-define-from-file=config/prod.json --obfuscate --split-debug-info=build/symbols`. Guardar `build/symbols`. | *Pendiente* |
 | 7 | **Instalación:** `adb install -r build/app/outputs/flutter-apk/app-release.apk`. Registrar en #102 la versión, el modelo y la versión de Android, con una captura. | *Pendiente* |
 
@@ -357,7 +358,7 @@ Las reglas completas están en [CLAUDE.md](../CLAUDE.md) e [instrucciones-equipo
 | [criterios-respaldo-importacion-borrado.md](criterios-respaldo-importacion-borrado.md) | XLSX, CSV y borrar datos |
 | [contrato-api-acceso.md](contrato-api-acceso.md) | Rutas, campos, respuestas y errores de la API |
 | [reglas-roles-contador.md](reglas-roles-contador.md) | Roles, consentimiento y revocación |
-| [base-de-datos.md](base-de-datos.md) | PostgreSQL, Neon, aislamiento y migraciones |
+| [base-de-datos.md](base-de-datos.md) | PostgreSQL, aislamiento y migraciones. Producción pasó de Neon a Railway (#189) |
 | [plan-de-pruebas.md](plan-de-pruebas.md) | Casos y resultados registrados |
 | [guia-de-evidencias.md](guia-de-evidencias.md) | Cómo guardar evidencia |
 | [backend/README.md](../backend/README.md) | Cómo correr y probar la API |
