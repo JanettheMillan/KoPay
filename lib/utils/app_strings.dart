@@ -26,6 +26,7 @@ class AppStrings {
     required this.monthBalance,
     required this.income,
     required this.expenses,
+    required this.payments,
     required this.movementsHeader,
     required this.noMovementsMonth,
     required this.cardsHeader,
@@ -141,6 +142,7 @@ class AppStrings {
   final String monthBalance;
   final String income;
   final String expenses;
+  final String payments;
   final String movementsHeader;
   final String noMovementsMonth;
 
@@ -273,6 +275,7 @@ class AppStrings {
     monthBalance: 'BALANCE DEL MES',
     income: 'Ingresos',
     expenses: 'Gastos',
+    payments: 'Pagos',
     movementsHeader: 'MOVIMIENTOS',
     noMovementsMonth: 'Sin movimientos este mes.',
     cardsHeader: 'TARJETAS',
@@ -398,6 +401,7 @@ class AppStrings {
     monthBalance: 'MONTH BALANCE',
     income: 'Income',
     expenses: 'Expenses',
+    payments: 'Payments',
     movementsHeader: 'ACTIVITY',
     noMovementsMonth: 'No activity this month.',
     cardsHeader: 'CARDS',
