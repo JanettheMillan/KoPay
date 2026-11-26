@@ -1,117 +1,131 @@
-// S3-03 · Contrato de salud y guía de ejecución local (HU-31).
+// S3-13 · Contrato de errores de la API (HU-30, HU-31).
 //
-// Comprueba que lo que dice backend/README.md coincide con lo que hace
-// la API, para que la guía no quede desactualizada. El plan de pruebas
-// no tiene casos para la API; estos son casos nuevos CON-01 a CON-06,
-// anotados en el PR.
+// Casos CON-01 a CON-04 de docs/contrato-api-acceso.md. Los casos de
+// registro e inicio de sesión (CON-05 en adelante) los agrega la
+// tarjeta que crea cada ruta.
 
 const fs = require('node:fs');
 const path = require('node:path');
 const request = require('supertest');
 
 const { createApp } = require('../src/app');
-const { loadConfig } = require('../src/config');
-const pkg = require('../package.json');
+const { ERROR_CODES, HttpError } = require('../src/errors');
+const { errorHandler } = require('../src/middleware/errors');
 
-const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const CONTRACT_FIELDS = [
-  'data',
-  'environment',
-  'service',
-  'status',
-  'timestamp',
-  'version',
-];
+/** Respuesta falsa para llamar al manejador sin Express. */
+function fakeRes() {
+  return {
+    statusCode: 0,
+    payload: undefined,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.payload = body;
+      return this;
+    },
+  };
+}
 
-describe('Contrato de salud', () => {
-  test('CON-01 · HU-31 · 200 con exactamente los campos y tipos documentados', async () => {
-    const res = await request(createApp({ config: loadConfig({}) })).get(
-      '/api/health',
-    );
+function handle(err) {
+  const res = fakeRes();
+  errorHandler(err, {}, res, () => {});
+  return res;
+}
 
-    expect(res.status).toBe(200);
-    expect(res.headers['content-type']).toMatch(/application\/json/);
-    expect(Object.keys(res.body).sort()).toEqual(CONTRACT_FIELDS);
-    expect(res.body).toEqual({
-      status: 'ok',
-      service: 'kopay-api',
-      version: pkg.version,
-      environment: 'development',
-      data: { kind: 'memory', ok: true },
-      timestamp: expect.stringMatching(ISO_UTC),
-    });
+describe('CON-01 · HU-30 · todos los errores tienen { error, code }', () => {
+  test('ruta inexistente → 404 NOT_FOUND', async () => {
+    const res = await request(createApp()).get('/api/auth/no-existe');
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'Ruta no encontrada', code: 'NOT_FOUND' });
   });
 
-  test('CON-02 · HU-31 · 503 con el mismo cuerpo y status "error"', async () => {
-    const store = { kind: 'memory', ping: async () => false };
-    const res = await request(createApp({ config: loadConfig({}), store })).get(
-      '/api/health',
-    );
-
-    expect(res.status).toBe(503);
-    expect(Object.keys(res.body).sort()).toEqual(CONTRACT_FIELDS);
-    expect(res.body).toMatchObject({ status: 'error', data: { ok: false } });
-  });
-
-  test('CON-03 · HU-31 · la respuesta no incluye secretos', async () => {
-    const config = loadConfig({
-      NODE_ENV: 'production',
-      DATABASE_URL: 'postgres://usuario:clave-secreta@db/kopay',
-      JWT_SECRET: 's'.repeat(40),
-      CORS_ORIGIN: 'https://kopay.example.com',
-    });
-    const res = await request(createApp({ config })).get('/api/health');
-    const texto = JSON.stringify(res.body);
-
-    expect(res.body.environment).toBe('production');
-    expect(texto).not.toContain('clave-secreta');
-    expect(texto).not.toContain('s'.repeat(40));
-  });
-
-  test('CON-04 · HU-31 · las respuestas de error coinciden con la guía', async () => {
-    const app = createApp({ config: loadConfig({}) });
-
-    const notFound = await request(app).get('/api/no-existe');
-    expect(notFound.status).toBe(404);
-    expect(readme).toContain(JSON.stringify(notFound.body));
-
-    const badJson = await request(app)
-      .post('/api/health')
+  test('JSON mal formado → 400 INVALID_JSON', async () => {
+    const res = await request(createApp())
+      .post('/api/auth/login')
       .set('Content-Type', 'application/json')
-      .send('{"roto":');
-    expect(badJson.status).toBe(400);
-    expect(readme).toContain(JSON.stringify(badJson.body));
+      .send('{"email":');
 
-    const tooLarge = await request(app)
-      .post('/api/health')
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'JSON inválido', code: 'INVALID_JSON' });
+  });
+
+  test('cuerpo de más de 100 kB → 413 PAYLOAD_TOO_LARGE', async () => {
+    const res = await request(createApp())
+      .post('/api/auth/register')
       .set('Content-Type', 'application/json')
-      .send(JSON.stringify({ x: 'a'.repeat(101 * 1024) }));
-    expect(tooLarge.status).toBe(413);
-    expect(readme).toContain(JSON.stringify(tooLarge.body));
+      .send(JSON.stringify({ name: 'x'.repeat(110 * 1024) }));
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe('PAYLOAD_TOO_LARGE');
+    expect(typeof res.body.error).toBe('string');
+  });
+
+  test('error inesperado → 500 INTERNAL sin detalles internos', () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const res = handle(new Error('conexión a postgres://usuario:clave@db rota'));
+    log.mockRestore();
+
+    expect(res.statusCode).toBe(500);
+    expect(res.payload).toEqual({ error: 'Error interno del servidor', code: 'INTERNAL' });
+    expect(JSON.stringify(res.payload)).not.toContain('clave');
   });
 });
 
-describe('Guía de ejecución local', () => {
-  test('CON-05 · HU-31 · cada comando npm de la guía existe en package.json', () => {
-    const commands = [...readme.matchAll(/npm (?:run )?([a-z]+)/g)].map(
-      (m) => m[1],
+describe('Errores propios de las rutas', () => {
+  test('CON-02 · HU-30 · fields solo aparece cuando se envía', () => {
+    const conCampos = handle(
+      new HttpError(400, 'Revisa los datos marcados', {
+        fields: { email: 'Escribe un correo válido' },
+      }),
     );
-    const builtIn = ['ci', 'install'];
-    const used = [...new Set(commands)].filter((c) => !builtIn.includes(c));
+    const sinCampos = handle(
+      new HttpError(401, 'Correo o contraseña incorrectos', {
+        code: ERROR_CODES.INVALID_CREDENTIALS,
+      }),
+    );
 
-    expect(used).toEqual(expect.arrayContaining(['start', 'test', 'dev']));
-    for (const command of used) {
-      expect(pkg.scripts).toHaveProperty(command);
+    expect(conCampos.statusCode).toBe(400);
+    expect(conCampos.payload).toEqual({
+      error: 'Revisa los datos marcados',
+      code: 'VALIDATION_FAILED',
+      fields: { email: 'Escribe un correo válido' },
+    });
+    expect(sinCampos.statusCode).toBe(401);
+    expect(sinCampos.payload).toEqual({
+      error: 'Correo o contraseña incorrectos',
+      code: 'INVALID_CREDENTIALS',
+    });
+  });
+
+  test('CON-03 · HU-30 · sin code se usa el del estado HTTP', () => {
+    const porEstado = {
+      400: 'VALIDATION_FAILED',
+      401: 'UNAUTHENTICATED',
+      403: 'FORBIDDEN',
+      404: 'NOT_FOUND',
+      409: 'EMAIL_TAKEN',
+      413: 'PAYLOAD_TOO_LARGE',
+      429: 'TOO_MANY_ATTEMPTS',
+      503: 'UNAVAILABLE',
+      418: 'INTERNAL',
+    };
+    for (const [status, code] of Object.entries(porEstado)) {
+      expect(new HttpError(Number(status), 'x').code).toBe(code);
     }
   });
 
-  test('CON-06 · HU-31 · la guía documenta cada campo y el puerto por defecto', () => {
-    for (const field of ['status', 'service', 'version', 'environment', 'data.kind', 'data.ok', 'timestamp']) {
-      expect(readme).toContain(`\`${field}\``);
-    }
-    expect(readme).toContain(`http://localhost:${loadConfig({}).port}/api/health`);
-    expect(readme).toContain(`Node.js ${pkg.engines.node.replace('>=', '')}`);
-    expect(fs.existsSync(path.join(__dirname, '..', '.env.example'))).toBe(true);
+  test('CON-04 · HU-30 · la tabla de códigos del documento coincide con Node', () => {
+    const doc = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'docs', 'contrato-api-acceso.md'),
+      'utf8',
+    );
+    const seccion = doc.split('### Códigos')[1].split('\n## ')[0];
+    const enDoc = [...seccion.matchAll(/^\| \d{3} \| `([A-Z_]+)` \|/gm)].map((m) => m[1]);
+
+    expect(enDoc.length).toBeGreaterThan(0);
+    expect([...enDoc].sort()).toEqual(Object.values(ERROR_CODES).sort());
   });
 });

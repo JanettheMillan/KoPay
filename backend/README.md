@@ -93,10 +93,12 @@ La respuesta nunca incluye secretos, `DATABASE_URL` ni detalles internos. Quien 
 
 | Caso | Código | Cuerpo |
 | :--- | :--- | :--- |
-| Ruta que no existe | `404` | `{"error":"Ruta no encontrada"}` |
-| JSON mal formado | `400` | `{"error":"JSON inválido"}` |
-| Cuerpo de más de 100 KB | `413` | `{"error":"Los datos enviados son demasiado grandes"}` |
-| Error inesperado | `500` | `{"error":"Error interno del servidor"}` |
+| Ruta que no existe | `404` | `{"error":"Ruta no encontrada","code":"NOT_FOUND"}` |
+| JSON mal formado | `400` | `{"error":"JSON inválido","code":"INVALID_JSON"}` |
+| Cuerpo de más de 100 KB | `413` | `{"error":"Los datos enviados son demasiado grandes","code":"PAYLOAD_TOO_LARGE"}` |
+| Error inesperado | `500` | `{"error":"Error interno del servidor","code":"INTERNAL"}` |
+
+Todos los errores tienen la forma `{ error, code, fields? }`. La lista de códigos y las rutas de registro e inicio de sesión están en [`docs/contrato-api-acceso.md`](../docs/contrato-api-acceso.md) (S3-13).
 
 ## 5. Ambientes
 
