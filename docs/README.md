@@ -14,6 +14,7 @@ Este directorio reúne el alcance, diseño, planificación, historias, pruebas y
 8. [Criterios de respaldo, importación y borrado](criterios-respaldo-importacion-borrado.md): reglas de exportar XLSX, importar CSV y borrar datos locales (S2-03).
 9. [Contrato de la API de acceso](contrato-api-acceso.md): rutas de registro e inicio de sesión y forma de los errores de la API (S3-13).
 10. [Reglas de roles y consentimiento del contador](reglas-roles-contador.md): quién autoriza, qué ve el contador y cómo se revoca (S3-14).
+11. [Guía de la API](../backend/README.md): cómo iniciar la API Node.js en local, comprobar que responde y el contrato de `GET /api/health` (S3-03).
 
 ## Destino de entrega indicado por el equipo
 
