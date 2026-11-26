@@ -14,6 +14,7 @@ const { createAuthService } = require('./services/auth.service');
 const { createExchangeRateService } = require('./services/exchange-rate.service');
 const { createHealthService } = require('./services/health.service');
 const { createIncomeService } = require('./services/income.service');
+const { createLoginThrottle } = require('./services/login-throttle');
 const { createMailer } = require('./services/mail.service');
 const { createMovementService } = require('./services/movement.service');
 const { createRecoveryService } = require('./services/recovery.service');
@@ -47,7 +48,12 @@ function createApp({
     incomeService,
     healthService: createHealthService({ store, config }),
     sessionService,
-    authService: createAuthService({ store, sessionService }),
+    authService: createAuthService({
+      store,
+      sessionService,
+      // Límite de intentos del login por correo (S4-13).
+      loginThrottle: createLoginThrottle({ now }),
+    }),
     recoveryService: createRecoveryService({ store, mailer, secret: config.jwtSecret, now }),
     accountantAccessService: createAccountantAccessService({ store }),
     exchangeRateService,

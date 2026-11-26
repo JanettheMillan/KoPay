@@ -201,6 +201,10 @@ curl -s -X POST http://localhost:3000/api/incomes -H "Authorization: Bearer <acc
 
 Después de actualizar `develop`, corre `npm run migrate`: S5-02 agrega `006_incomes.sql`.
 
+### Límite de intentos del login (S4-13)
+
+Después de 10 intentos fallidos con el mismo correo en 15 minutos, `POST /api/auth/login` responde `429 TOO_MANY_ATTEMPTS`, aunque la contraseña sea correcta, hasta que pase la ventana. Un login correcto reinicia el contador. El contador vive en memoria (`src/services/login-throttle.js`): se reinicia con la API. Revisión completa en `docs/revision-seguridad-s4-13.md`.
+
 ### Recuperación de acceso (S4-19)
 
 1. `POST /api/auth/recover` con `{ "email" }` responde siempre `200 { message }`, exista o no la cuenta. Si existe, envía por correo un código de 6 dígitos que vence en 15 minutos. Como máximo un correo por minuto por cuenta: antes de ese minuto responde igual, pero no envía otro.

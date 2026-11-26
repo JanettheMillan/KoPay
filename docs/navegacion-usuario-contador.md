@@ -37,6 +37,8 @@ flowchart TD
 | Crear cuenta | `register_screen.dart` | HU-30 | Las cuentas nuevas son de usuario. El rol de contador no se elige desde la app. |
 | Recuperar acceso | `recover_screen.dart` | HU-32 | Pide el correo y confirma el envío sin revelar si la cuenta existe. |
 
+> **Implementado (S3-12, [#60](https://github.com/JanettheMillan/KoPay/issues/60)):** `lib/screens/session_gate.dart` decide la primera pantalla con `SessionProvider.status` (S4-08): Splash mientras lee la sesión guardada, Iniciar sesión sin sesión (S3-11), la vista de usuario con una cuenta `user` y la de contador con una `accountant`. Hasta S4-12, la vista de contador es la maqueta de S2-19, con su aviso de datos de ejemplo. Al cambiar la sesión, se cierran las pantallas abiertas encima. Sin red y con sesión guardada, abre la app con la cuenta guardada (contrato §2).
+
 ## 3. Vista de usuario
 
 Navegación inferior con tres pestañas, la misma que ya existe desde S1-05.
