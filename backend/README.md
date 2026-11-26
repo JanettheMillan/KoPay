@@ -186,6 +186,21 @@ curl -s -X POST http://localhost:3000/api/movements -H "Authorization: Bearer <a
 
 Después de actualizar `develop`, corre `npm run migrate`: S5-01 agrega `005_movements.sql`.
 
+### Ingresos (S5-02)
+
+`/api/incomes` sigue el mismo patrón que movimientos. El detalle está en la sección 3.13 del contrato.
+
+- `GET /api/incomes` (opcional `?month=AAAA-MM`), `GET /api/incomes/:id`, `POST`, `PUT /:id` y `DELETE /:id`.
+- Un ingreso tiene `name`, `amount` (siempre mayor que cero), `date` y `note`. No lleva categoría.
+- `PUT` acepta `version` y responde `409 VERSION_CONFLICT` si ya cambió en otro dispositivo.
+
+```bash
+curl -s -X POST http://localhost:3000/api/incomes -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" -d '{"name":"Nómina","amount":12500,"date":"2026-11-15"}'
+```
+
+Después de actualizar `develop`, corre `npm run migrate`: S5-02 agrega `006_incomes.sql`.
+
 ### Límite de intentos del login (S4-13)
 
 Después de 10 intentos fallidos con el mismo correo en 15 minutos, `POST /api/auth/login` responde `429 TOO_MANY_ATTEMPTS`, aunque la contraseña sea correcta, hasta que pase la ventana. Un login correcto reinicia el contador. El contador vive en memoria (`src/services/login-throttle.js`): se reinicia con la API. Revisión completa en `docs/revision-seguridad-s4-13.md`.
