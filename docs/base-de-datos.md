@@ -39,9 +39,9 @@ Ningún ambiente comparte base con otro. Las pruebas nunca apuntan al branch `ma
 
 Regla: **cada fila financiera tiene dueño y toda consulta filtra por ese dueño.**
 
-1. Las tablas `movements`, `incomes`, `cards`, `debts`, `payments` y `categories` llevan `user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE`, con un índice que empieza por `user_id`.
+1. Las tablas `movements`, `incomes`, `cards`, `debts` y `settings` llevan `user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE`, con un índice que empieza por `user_id`.
 2. El `user_id` sale **siempre** de la sesión verificada (JWT, S4-01 y S4-03), nunca del cuerpo, la URL ni la consulta de la petición.
-3. Toda consulta de lectura, edición o borrado incluye `WHERE user_id = $1`. Si se pide un id que existe pero es de otra cuenta, la API responde **404**, igual que si no existiera, para no revelar que existe.
+3. Toda consulta de lectura, edición o borrado incluye `WHERE user_id = $1`. Si se pide un id que existe pero es de otra cuenta, la API responde **404 `NOT_FOUND`**, igual que si no existiera, para no revelar que existe. (Para el contador en `/api/clients/:userId` la respuesta es `403`, ver [reglas-roles-contador.md §5](reglas-roles-contador.md).)
 4. El contador no es dueño de nada. Solo lee los datos de un cliente si existe una autorización activa en `accountant_access` (S3-06), y solo con `SELECT` (HU-42). Eso se comprueba en el servidor en cada consulta (S4-06), no en Flutter.
 5. Los servicios reciben `userId` como primer parámetro (`listMovements(userId, filtros)`). Una función de datos que no lo recibe no puede tocar tablas financieras.
 
@@ -52,10 +52,10 @@ Se descarta por ahora *Row Level Security* de PostgreSQL. Las cinco reglas de ar
 | Tarjeta | Tablas |
 | :--- | :--- |
 | S3-05 | `users` (correo único, hash de contraseña, rol `user` o `accountant`), `sessions` (refresh token en hash, expiración, revocación). |
-| S3-06 | `accountant_access` (usuario, contador, estado `active` o `revoked`, fechas de concesión y revocación). |
-| S5-01 a S5-05 | `movements`, `incomes`, `cards`, `debts`, `payments`, `categories`, con las mismas columnas que SQLite ([arquitectura.md §5](arquitectura.md)) más `user_id`, `version` y `updated_at` para la sincronización (HU-36). |
+| S3-06 | `accountant_access` (`user_id`, `accountant_id`, `granted_at`, `revoked_at`). Vigente = `revoked_at IS NULL`; sin columna de estado aparte. Columnas, índice único parcial y `CHECK` en [reglas-roles-contador.md §6](reglas-roles-contador.md) (S3-14). |
+| S5-01 a S5-05 | `movements`, `incomes`, `cards`, `debts` y `settings`, con las mismas columnas que SQLite ([arquitectura.md §5](arquitectura.md)) más `user_id`, `version` y `updated_at` para la sincronización (HU-36). Como en SQLite, los pagos son filas de `movements` con `type = payment` y `card_id` o `debt_id` (no hay tabla `payments`), y las categorías viven en `settings`. |
 
-Convenciones: llaves `uuid` con `gen_random_uuid()`; dinero en `numeric(14,2)` con `CHECK (monto >= 0)`; fechas en `timestamptz` guardadas en UTC; nombres en inglés y `snake_case`, igual que SQLite.
+Convenciones: llaves `uuid` con `gen_random_uuid()`; dinero en `numeric(14,2)`. El signo sigue a SQLite: en `movements` los gastos y pagos son negativos y las entradas positivas, así que ahí **no** hay `CHECK` de signo; `incomes.amount`, `cards.credit_limit`, `cards.used_balance`, `debts.monthly_payment` y `debts.remaining_balance` llevan `CHECK (… >= 0)`; fechas en `timestamptz` guardadas en UTC; nombres en inglés y `snake_case`, igual que SQLite.
 
 ## 4. Migraciones
 

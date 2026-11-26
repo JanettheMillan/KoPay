@@ -1,0 +1,7 @@
+# Secretos: ningún archivo .env se sube, salvo la plantilla.
+.env
+.env.*
+!.env.example
+
+node_modules/
+coverage/
