@@ -1,0 +1,21 @@
+register válido (201)                                     201  {"user":{"id":"55db97d3-dc49-48ce-82c3-919ed4c047be","name":"Ana López","email":"ana.e2e@mail.com","role":"user","createdAt":"2026-11-26T22:03:59.397
+register correo repetido (409 EMAIL_TAKEN)                 409  {"error":"Ya existe una cuenta con ese correo","code":"EMAIL_TAKEN"}
+register inválido (400 VALIDATION_FAILED)                 400  {"error":"Revisa los datos marcados","code":"VALIDATION_FAILED","fields":{"name":"Escribe tu nombre","email":"Escribe un correo válido","password":"L
+JSON roto (400 INVALID_JSON)                               400  {"error":"JSON inválido","code":"INVALID_JSON"}
+login contraseña mala (401 INVALID_CREDENTIALS)           401  {"error":"Correo o contraseña incorrectos","code":"INVALID_CREDENTIALS"}
+login correo inexistente (401 mismo cuerpo)                401  {"error":"Correo o contraseña incorrectos","code":"INVALID_CREDENTIALS"}
+login correcto, correo en mayúsculas (200)                200  {"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NWRiOTdkMy1kYzQ5LTQ4Y2UtODJjMy05MTllZDRjMDQ3YmUiLCJqdGkiOiI3U1FUY0VCTV9kdWNrUFFlM3p1V
+me con token (200)                                         200  {"user":{"id":"55db97d3-dc49-48ce-82c3-919ed4c047be","name":"Ana López","email":"ana.e2e@mail.com","role":"user","createdAt":"2026-11-26T22:03:59.397
+me sin token (401 UNAUTHENTICATED)                         401  {"error":"Inicia sesión para continuar","code":"UNAUTHENTICATED"}
+crear movimiento (201)                                     201  {"movement":{"id":"fe9ea99a-a517-4f32-bae7-fdd8a9c4d8d4","userId":"55db97d3-dc49-48ce-82c3-919ed4c047be","amount":-150.5,"description":"Café","catego
+crear ingreso (201)                                        201  {"income":{"id":"798c6491-1571-4697-a188-a8242a5ffe69","userId":"55db97d3-dc49-48ce-82c3-919ed4c047be","name":"Nómina","amount":12500,"date":"2026-11
+refresh (200, tokens nuevos)                               200  {"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NWRiOTdkMy1kYzQ5LTQ4Y2UtODJjMy05MTllZDRjMDQ3YmUiLCJqdGkiOiJNZmpiLWVXaVZhNDdBNVdjcmFpe
+refresh reusado (401)                                      401  {"error":"Inicia sesión para continuar","code":"UNAUTHENTICATED"}
+token anterior al refresh (401)                            401  {"error":"Inicia sesión para continuar","code":"UNAUTHENTICATED"}
+listar movimientos con token nuevo (200)                   200  {"movements":[{"id":"fe9ea99a-a517-4f32-bae7-fdd8a9c4d8d4","userId":"55db97d3-dc49-48ce-82c3-919ed4c047be","amount":-150.5,"description":"Café","cate
+logout (204)                                               204  
+me tras logout (401)                                       401  {"error":"Inicia sesión para continuar","code":"UNAUTHENTICATED"}
+clients sin sesión (401)                                  401  {"error":"Inicia sesión para continuar","code":"UNAUTHENTICATED"}
+ruta inexistente (404 NOT_FOUND)                           404  {"error":"Ruta no encontrada","code":"NOT_FOUND"}
+11.º intento tras 10 fallos (429 TOO_MANY_ATTEMPTS)       429  {"error":"Demasiados intentos. Espera unos minutos e inténtalo de nuevo.","code":"TOO_MANY_ATTEMPTS"}
+login con la base caída (503 UNAVAILABLE)                  {"error":"El servicio no está disponible. Inténtalo de nuevo.","code":"UNAVAILABLE"} 503
