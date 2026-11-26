@@ -52,7 +52,7 @@ Cualquier respuesta con estado `4xx` o `5xx` tiene este cuerpo:
 | 409 | `EMAIL_TAKEN` | Ya hay una cuenta con ese correo. | Marca el campo correo con `error`. |
 | 409 | `VERSION_CONFLICT` | El registro cambió en otro dispositivo después de que la app lo leyó (envía una `version` vieja). | Recarga el registro y avisa; no sobrescribe. |
 | 413 | `PAYLOAD_TOO_LARGE` | El cuerpo pasa de 100 kB. | Muestra `error`. |
-| 429 | `TOO_MANY_ATTEMPTS` | Código de recuperación con 5 intentos fallidos (sección 3.8), o login con 10 intentos fallidos del mismo correo en 15 minutos (sección 3.2, S4-13). | Muestra `error` y desactiva el botón un momento. En recuperación, regresa a pedir un código nuevo. |
+| 429 | `TOO_MANY_ATTEMPTS` | Código de recuperación con 5 intentos fallidos (sección 3.8), o login con 10 intentos fallidos del mismo correo en 15 minutos (sección 3.2, S4-13). | Muestra `error` y desactiva el botón un momento (en el login, 30 segundos; D-12). En recuperación, regresa a pedir un código nuevo. |
 | 500 | `INTERNAL` | Error inesperado del servidor. | Muestra `error` y permite reintentar. |
 | 503 | `UNAVAILABLE` | La base de datos u otro servicio no responde. | Muestra `error` y permite reintentar. |
 

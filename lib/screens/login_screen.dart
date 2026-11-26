@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -38,6 +40,10 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+/// Cuánto se desactiva el botón después de un `429 TOO_MANY_ATTEMPTS`
+/// (contrato §2: "desactiva el botón un momento", D-12).
+const Duration loginRetryDelay = Duration(seconds: 30);
+
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _email;
@@ -45,6 +51,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _submitted = false;
   bool _sending = false;
+
+  /// Activo mientras dura la espera después de un `429` (D-12).
+  Timer? _retryTimer;
+  bool get _waiting => _retryTimer?.isActive ?? false;
   bool _showPassword = false;
   Map<String, String> _serverFields = const {};
   String? _banner;
@@ -57,6 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _retryTimer?.cancel();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -116,6 +127,13 @@ class _LoginScreenState extends State<LoginScreen> {
           if (e.code == ApiErrorCode.invalidCredentials) {
             _password.clear();
             _submitted = false;
+          }
+          // Contrato §2: con 429 se desactiva el botón un momento (D-12).
+          if (e.code == ApiErrorCode.tooManyAttempts) {
+            _retryTimer?.cancel();
+            _retryTimer = Timer(loginRetryDelay, () {
+              if (mounted) setState(() {});
+            });
           }
         }
       });
@@ -236,7 +254,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       onChanged: (_) => _clearServerError('password'),
-                      onFieldSubmitted: (_) => _sending ? null : _submit(),
+                      onFieldSubmitted: (_) =>
+                          _sending || _waiting ? null : _submit(),
                       validator: _validator(
                         'password',
                         AuthValidators.password,
@@ -246,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       key: const Key('login-submit'),
                       label: s.signIn,
                       saving: _sending,
-                      onPressed: _submit,
+                      onPressed: _waiting ? null : _submit,
                     ),
                   ],
                 ),
