@@ -46,6 +46,9 @@ describe('POST /api/auth/login', () => {
       accessToken: expect.any(String),
       tokenType: 'Bearer',
       expiresIn: 900,
+      // S4-02 agrega la renovación (contrato §3.2 y §3.5).
+      refreshToken: expect.any(String),
+      refreshExpiresIn: 2592000,
       user: {
         id: expect.any(String),
         name: 'Ana López',

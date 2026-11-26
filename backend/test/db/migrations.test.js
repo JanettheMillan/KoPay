@@ -63,6 +63,7 @@ describe('DB-01 · Migración desde cero', () => {
       '001_users_roles_sessions.sql',
       '002_accountant_access.sql',
       '003_password_resets.sql',
+      '004_session_refresh.sql',
     ]);
 
     const { rows } = await client.query(
@@ -83,7 +84,33 @@ describe('DB-01 · Migración desde cero', () => {
     const { rows } = await client.query(
       'SELECT version FROM schema_migrations ORDER BY version',
     );
-    expect(rows).toEqual([{ version: '001' }, { version: '002' }, { version: '003' }]);
+    expect(rows).toEqual([
+      { version: '001' },
+      { version: '002' },
+      { version: '003' },
+      { version: '004' },
+    ]);
+  });
+});
+
+describe('DB-08 · Columnas de renovación (S4-02)', () => {
+  beforeEach(() => client.query('TRUNCATE users CASCADE'));
+
+  test('DB-08 · HU-31 · el refreshToken va con su vencimiento, es único y vence después de crearse', async () => {
+    const user = await insertUser('ana@mail.com');
+    const insert = (token, refresh, refreshExpires) =>
+      errorCode(
+        `INSERT INTO sessions (user_id, token_hash, expires_at, refresh_token_hash, refresh_expires_at)
+         VALUES ($1, $2, now() + interval '15 minutes', $3, $4)`,
+        [user.id, token, refresh, refreshExpires],
+      );
+    const in30Days = new Date(Date.now() + 30 * 86400_000);
+
+    expect(await insert('t1', 'r1', in30Days)).toBeNull();
+    expect(await insert('t2', null, null)).toBeNull();
+    expect(await insert('t3', 'r1', in30Days)).toBe('23505');
+    expect(await insert('t4', 'r4', null)).toBe('23514');
+    expect(await insert('t5', 'r5', new Date(Date.now() - 1000))).toBe('23514');
   });
 });
 

@@ -92,8 +92,13 @@ function toSession(row) {
     createdAt: row.created_at.toISOString(),
     expiresAt: row.expires_at.toISOString(),
     revokedAt: row.revoked_at ? row.revoked_at.toISOString() : null,
+    refreshTokenHash: row.refresh_token_hash ?? null,
+    refreshExpiresAt: row.refresh_expires_at ? row.refresh_expires_at.toISOString() : null,
   };
 }
+
+const SESSION_COLUMNS =
+  'id, user_id, token_hash, created_at, expires_at, revoked_at, refresh_token_hash, refresh_expires_at';
 
 /** Fila de `accountant_access` con los nombres que usan los servicios. */
 function toGrant(row) {
@@ -195,12 +200,19 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
      * Abre una sesión (S3-09). Solo guarda el hash del token; el token en
      * claro lo tiene únicamente la app.
      */
-    async createSession({ userId, tokenHash, expiresAt }) {
+    async createSession({
+      userId,
+      tokenHash,
+      expiresAt,
+      refreshTokenHash = null,
+      refreshExpiresAt = null,
+    }) {
       const { rows } = await query(
-        `INSERT INTO sessions (user_id, token_hash, expires_at)
-         VALUES ($1, $2, $3)
-         RETURNING id, user_id, token_hash, created_at, expires_at, revoked_at`,
-        [userId, tokenHash, expiresAt],
+        `INSERT INTO sessions
+           (user_id, token_hash, expires_at, refresh_token_hash, refresh_expires_at)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING ${SESSION_COLUMNS}`,
+        [userId, tokenHash, expiresAt, refreshTokenHash, refreshExpiresAt],
       );
       return toSession(rows[0]);
     },
@@ -208,11 +220,32 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
     /** Sesión con ese hash de token, o `null` si no existe. */
     async findSessionByTokenHash(tokenHash) {
       const { rows } = await query(
-        `SELECT id, user_id, token_hash, created_at, expires_at, revoked_at
-         FROM sessions WHERE token_hash = $1`,
+        `SELECT ${SESSION_COLUMNS} FROM sessions WHERE token_hash = $1`,
         [tokenHash],
       );
       return rows.length === 0 ? null : toSession(rows[0]);
+    },
+
+    /** Sesión con ese hash de refreshToken, o `null` (S4-02). */
+    async findSessionByRefreshHash(refreshTokenHash) {
+      const { rows } = await query(
+        `SELECT ${SESSION_COLUMNS} FROM sessions WHERE refresh_token_hash = $1`,
+        [refreshTokenHash],
+      );
+      return rows.length === 0 ? null : toSession(rows[0]);
+    },
+
+    /**
+     * Cierra la sesión `sessionId` llenando `revoked_at` (S4-02). Devuelve
+     * `true` solo si estaba abierta: dos renovaciones a la vez con el
+     * mismo refreshToken no pueden ganar las dos.
+     */
+    async revokeSession(sessionId) {
+      const { rowCount } = await query(
+        'UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL',
+        [sessionId],
+      );
+      return rowCount === 1;
     },
 
     /**

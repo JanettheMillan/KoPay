@@ -78,3 +78,24 @@ test('E2E-03 · HU-34 · un token alterado se rechaza también contra la base', 
   const res = await api.get('/api/auth/me').set('Authorization', `Bearer ${altered}`);
   expect(res.status).toBe(401);
 });
+
+test('E2E-04 · HU-31 · HU-33 · renovar y cerrar sesión contra PostgreSQL (S4-02)', async () => {
+  const api = boot();
+  const first = (await api.post('/api/auth/login').send(ana)).body;
+  expect(first.refreshToken).toEqual(expect.any(String));
+
+  const renewed = await api.post('/api/auth/refresh').send({ refreshToken: first.refreshToken });
+  expect(renewed.status).toBe(200);
+  expect((await api.post('/api/auth/refresh').send({ refreshToken: first.refreshToken })).status).toBe(401);
+
+  const { accessToken } = renewed.body;
+  expect((await api.get('/api/auth/me').set('Authorization', `Bearer ${accessToken}`)).status).toBe(200);
+  expect((await api.post('/api/auth/logout').set('Authorization', `Bearer ${accessToken}`)).status).toBe(204);
+  expect((await api.get('/api/auth/me').set('Authorization', `Bearer ${accessToken}`)).status).toBe(401);
+  expect((await api.post('/api/auth/refresh').send({ refreshToken: renewed.body.refreshToken })).status).toBe(401);
+
+  const { rows } = await client.query(
+    'SELECT refresh_token_hash FROM sessions WHERE refresh_token_hash IS NOT NULL',
+  );
+  for (const r of rows) expect(r.refresh_token_hash).toMatch(/^[0-9a-f]{64}$/);
+});

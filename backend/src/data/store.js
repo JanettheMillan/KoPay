@@ -79,7 +79,13 @@ function createMemoryStore({ now = () => new Date() } = {}) {
      * Abre una sesión (tabla `sessions`). Solo guarda el hash del token;
      * el token en claro lo tiene únicamente la app.
      */
-    async createSession({ userId, tokenHash, expiresAt }) {
+    async createSession({
+      userId,
+      tokenHash,
+      expiresAt,
+      refreshTokenHash = null,
+      refreshExpiresAt = null,
+    }) {
       const session = {
         id: randomUUID(),
         userId,
@@ -87,6 +93,8 @@ function createMemoryStore({ now = () => new Date() } = {}) {
         createdAt: now().toISOString(),
         expiresAt,
         revokedAt: null,
+        refreshTokenHash,
+        refreshExpiresAt,
       };
       sessionsByTokenHash.set(tokenHash, session);
       return { ...session };
@@ -96,6 +104,28 @@ function createMemoryStore({ now = () => new Date() } = {}) {
     async findSessionByTokenHash(tokenHash) {
       const session = sessionsByTokenHash.get(tokenHash);
       return session ? { ...session } : null;
+    },
+
+    /** Sesión con ese hash de refreshToken, o `null` (S4-02). */
+    async findSessionByRefreshHash(refreshTokenHash) {
+      for (const session of sessionsByTokenHash.values()) {
+        if (session.refreshTokenHash === refreshTokenHash) return { ...session };
+      }
+      return null;
+    },
+
+    /**
+     * Cierra la sesión `sessionId` llenando `revokedAt` (S4-02). Devuelve
+     * `true` solo si estaba abierta: dos cierres a la vez no cuentan doble.
+     */
+    async revokeSession(sessionId) {
+      for (const session of sessionsByTokenHash.values()) {
+        if (session.id === sessionId && session.revokedAt === null) {
+          session.revokedAt = now().toISOString();
+          return true;
+        }
+      }
+      return false;
     },
 
     /**

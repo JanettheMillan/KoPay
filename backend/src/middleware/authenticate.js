@@ -22,4 +22,4 @@ function authenticate({ sessionService }) {
   };
 }
 
-module.exports = { authenticate };
+module.exports = { BEARER, authenticate };
