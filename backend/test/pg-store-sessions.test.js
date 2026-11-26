@@ -42,8 +42,11 @@ describe('pg-store · sesiones', () => {
       expiresAt: vence.toISOString(),
     });
 
-    expect(queries[0].text).toMatch(/INSERT INTO sessions \(user_id, token_hash, expires_at\)/);
-    expect(queries[0].params).toEqual(['u1', 'abc123', vence.toISOString()]);
+    // S4-02 agrega el hash y el vencimiento del refreshToken.
+    expect(queries[0].text).toMatch(
+      /INSERT INTO sessions\s+\(user_id, token_hash, expires_at, refresh_token_hash, refresh_expires_at\)/,
+    );
+    expect(queries[0].params).toEqual(['u1', 'abc123', vence.toISOString(), null, null]);
     expect(sesion).toEqual({
       id: 's1',
       userId: 'u1',
@@ -51,6 +54,8 @@ describe('pg-store · sesiones', () => {
       createdAt: creada.toISOString(),
       expiresAt: vence.toISOString(),
       revokedAt: null,
+      refreshTokenHash: null,
+      refreshExpiresAt: null,
     });
   });
 

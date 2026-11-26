@@ -138,7 +138,7 @@ Respuesta `200 OK`:
 - `accessToken` es **opaco** para Flutter: lo guarda y lo envía, pero no lo lee. Desde S4-01 es un JWT HS256 (`sub` = id del usuario, `jti`, `iat`, `exp`) firmado con `JWT_SECRET`, y cada uno tiene su fila en `sessions` (solo el hash). La respuesta no cambió.
 - `expiresIn` está en segundos.
 - `user.role` es `user` o `accountant`. Flutter abre la vista de usuario o la de contador según este valor (HU-37).
-- A partir de S4-02 la respuesta agrega `refreshToken` y `refreshExpiresIn`. Flutter debe aceptar la respuesta con o sin ellos.
+- Desde S4-02 la respuesta agrega `refreshToken` (texto opaco) y `refreshExpiresIn` (2592000 segundos, 30 días). Flutter guarda los dos y debe aceptar la respuesta con o sin ellos.
 
 Errores: `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `429 TOO_MANY_ATTEMPTS` (reservado), `500`, `503`.
 
@@ -152,11 +152,29 @@ Errores: `401 UNAUTHENTICATED`, `500`, `503`.
 
 ### 3.4 `POST /api/auth/logout` · Cerrar sesión (HU-33, S4-02)
 
-Requiere `Authorization: Bearer <accessToken>`. Invalida la sesión en el servidor y responde `204 No Content` sin cuerpo. Con un token ya inválido también responde `204`: el resultado para la persona es el mismo.
+Requiere `Authorization: Bearer <accessToken>`. Invalida la sesión en el servidor y responde `204 No Content` sin cuerpo. Con un token ya inválido, ya cerrado o sin encabezado también responde `204`: el resultado para la persona es el mismo.
+
+- Cerrar sesión llena `revoked_at` en esa fila de `sessions`: desde ese momento el `accessToken` y el `refreshToken` de esa sesión responden `401 UNAUTHENTICATED`, aunque la firma del JWT todavía no venza.
+- Solo se cierra **esa** sesión. Las de otros dispositivos de la misma cuenta siguen abiertas.
+- Flutter borra la sesión guardada aunque la petición falle por red: para la persona, la sesión quedó cerrada.
 
 ### 3.5 `POST /api/auth/refresh` · Renovar sesión (HU-31, S4-02)
 
-Petición `{ "refreshToken": "<texto opaco>" }`. Responde igual que el login. Si el `refreshToken` no es válido o expiró, `401 UNAUTHENTICATED`. El detalle lo cierra S4-02 en este documento.
+Petición `{ "refreshToken": "<texto opaco>" }`. No requiere `Authorization`: se usa justo cuando el `accessToken` ya venció.
+
+Respuesta `200 OK`, igual que el login (§3.2): `accessToken`, `tokenType`, `expiresIn`, `refreshToken`, `refreshExpiresIn` y `user`, **todos nuevos**.
+
+- **Rotación:** renovar cierra la sesión anterior y abre otra. El `refreshToken` usado y el `accessToken` anterior dejan de servir. Flutter reemplaza los dos tokens guardados.
+- Si llegan dos renovaciones a la vez con el mismo `refreshToken`, solo una responde `200`; la otra, `401`.
+- El `refreshToken` vence a los 30 días de abrir la sesión. Después hay que iniciar sesión otra vez.
+- En la base solo se guarda el hash del `refreshToken` (columna `refresh_token_hash`, migración `004_session_refresh.sql`).
+
+Errores:
+
+| Estado | `code` | Cuándo | Cuerpo |
+| :---: | :--- | :--- | :--- |
+| 400 | `VALIDATION_FAILED` | Falta `refreshToken` o no es texto. | `fields.refreshToken`: `Falta el refreshToken` |
+| 401 | `UNAUTHENTICATED` | No existe, venció, ya se usó, la sesión se cerró (logout o cambio de contraseña) o la cuenta ya no existe. La respuesta es la misma en todos los casos. | `Inicia sesión para continuar` |
 
 ### 3.6 `/api/accountants` · Contadores autorizados (HU-38, HU-41, S4-05)
 
@@ -299,7 +317,7 @@ Errores:
 | `POST /api/auth/login` | No | S3-09 | `200 { accessToken, tokenType, expiresIn, user }` | `VALIDATION_FAILED`, `INVALID_CREDENTIALS` |
 | `GET /api/auth/me` | Sí | S3-09 | `200 { user }` | `UNAUTHENTICATED` |
 | `POST /api/auth/logout` | Sí | S4-02 | `204` | — |
-| `POST /api/auth/refresh` | No | S4-02 | `200` igual que login | `UNAUTHENTICATED` |
+| `POST /api/auth/refresh` | No | S4-02 | `200` igual que login, con tokens nuevos | `VALIDATION_FAILED`, `UNAUTHENTICATED` |
 | `GET /api/accountants` | Sí, `user` | S4-05 | `200 { grants }` | `FORBIDDEN` |
 | `POST /api/accountants` | Sí, `user` | S4-05 | `201 { grant }` o `200` si ya estaba vigente | `VALIDATION_FAILED`, `NOT_FOUND`, `FORBIDDEN` |
 | `DELETE /api/accountants/:grantId` | Sí, `user` | S4-05 | `204` | `NOT_FOUND`, `FORBIDDEN` |
@@ -311,7 +329,7 @@ Errores:
 
 ## 5. Casos de prueba del contrato
 
-Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js`, CON-05 a CON-09 en `backend/test/register.test.js`, CON-10 en `backend/test/credentials.test.js` CON-11 a CON-14 en `backend/test/login.test.js` y CON-17 a CON-26 y CON-28 en `backend/test/recovery.test.js`. Los demás los automatiza la tarjeta que crea cada ruta, con el mismo identificador en el nombre de la prueba, y QA los toma en S3-16 y S3-18.
+Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js`, CON-05 a CON-09 en `backend/test/register.test.js`, CON-10 en `backend/test/credentials.test.js` CON-11 a CON-14 en `backend/test/login.test.js`, CON-16 y CON-29 a CON-34 en `backend/test/session-refresh.test.js` y CON-17 a CON-26 y CON-28 en `backend/test/recovery.test.js`. Los demás los automatiza la tarjeta que crea cada ruta, con el mismo identificador en el nombre de la prueba, y QA los toma en S3-16 y S3-18.
 
 | Caso | Historia | Tarjeta | Qué se envía | Resultado esperado |
 | :--- | :--- | :--- | :--- | :--- |
@@ -343,6 +361,12 @@ Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js`, CON
 | CON-26 | HU-32 | S4-19 | Revisar respuestas, base y consola después de `recover` y `reset` | El código y la contraseña no aparecen en respuestas; en la base solo hay hashes; en `production` el código no sale en la consola |
 | CON-27 | HU-32 | S4-20 | Respuestas `200`, `204`, `400`, `429` y sin red en las pantallas de recuperación de Flutter | Cada una muestra el mensaje de la tabla y ningún dato privado |
 | CON-28 | HU-32 | S4-19 | `recover` dos veces en menos de un minuto para la misma cuenta, y otra vez pasado el minuto | Las tres `200` con el mismo cuerpo; solo se envían dos correos; el primer código sigue valiendo hasta que llega el segundo |
+| CON-29 | HU-33 | S4-02 | `logout` sin token, con uno inválido y dos veces con el mismo | Todas `204` |
+| CON-30 | HU-33 | S4-02 | Dos sesiones de la misma cuenta y `logout` en una | La otra sigue respondiendo `200` en `/me` |
+| CON-31 | HU-31 | S4-02 | `refresh` con un `refreshToken` válido | `200` con la forma del login y tokens nuevos que sirven en `/me` |
+| CON-32 | HU-31, HU-34 | S4-02 | El mismo `refreshToken` dos veces | La segunda `401`; el `accessToken` anterior también `401` |
+| CON-33 | HU-31 | S4-02 | `refresh` sin campo, con uno que no existe, de una sesión cerrada y vencido (30 días) | `400` con `fields.refreshToken`; los demás `401 UNAUTHENTICATED` |
+| CON-34 | HU-34 | S4-02 | Dos `refresh` a la vez con el mismo `refreshToken` | Uno `200` y otro `401` |
 
 ## 6. Revisión
 

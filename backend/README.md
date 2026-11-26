@@ -2,7 +2,7 @@
 
 API Node.js de KoPay (Express 5). Expone la ruta de salud, el registro de cuentas y el inicio de sesión. La sincronización se agrega en tarjetas siguientes.
 
-**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales), S3-09 (login), S4-01 (JWT y PostgreSQL en `npm start`), S4-19 (recuperación de acceso).
+**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales), S3-09 (login), S4-01 (JWT y PostgreSQL en `npm start`), S4-02 (renovar y cerrar sesión), S4-19 (recuperación de acceso).
 
 ## 1. Requisitos
 
@@ -136,7 +136,7 @@ La contraseña nunca se guarda en texto plano (S3-08): se guarda su hash con `sc
 
 ### Inicio de sesión (S3-09)
 
-`POST /api/auth/login` con `{ "email", "password" }` responde `200 { accessToken, tokenType, expiresIn, user }`. Si el correo no existe o la contraseña no coincide, responde siempre lo mismo: `401 INVALID_CREDENTIALS`. Si falta un campo, `400 VALIDATION_FAILED`.
+`POST /api/auth/login` con `{ "email", "password" }` responde `200 { accessToken, tokenType, expiresIn, refreshToken, refreshExpiresIn, user }`. Si el correo no existe o la contraseña no coincide, responde siempre lo mismo: `401 INVALID_CREDENTIALS`. Si falta un campo, `400 VALIDATION_FAILED`.
 
 `GET /api/auth/me` con `Authorization: Bearer <accessToken>` responde `200 { user }`, o `401 UNAUTHENTICATED` sin token, con un token inválido o con uno vencido.
 
@@ -145,7 +145,19 @@ curl -s -X POST http://localhost:3000/api/auth/login   -H "Content-Type: applica
 curl -i http://localhost:3000/api/auth/me -H "Authorization: Bearer <accessToken>"
 ```
 
-En el Sprint 3 el `accessToken` es texto aleatorio que vence a los 900 segundos. Solo se guarda su hash SHA-256 (`token_hash` de la tabla `sessions`). S4-01 lo cambia por un JWT sin cambiar la respuesta. El middleware `src/middleware/authenticate.js` deja `req.auth.userId` para el control de roles (S4-04).
+El `accessToken` es un JWT HS256 que vence a los 900 segundos (S4-01) y el `refreshToken` es texto aleatorio que vence a los 30 días (S4-02). De los dos solo se guarda el hash SHA-256 (`token_hash` y `refresh_token_hash` de la tabla `sessions`). El middleware `src/middleware/authenticate.js` deja `req.auth.userId` para el control de roles (S4-04).
+
+### Renovar y cerrar sesión (S4-02)
+
+- `POST /api/auth/refresh` con `{ "refreshToken" }` responde `200` igual que el login, con tokens **nuevos**. El `refreshToken` usado y el `accessToken` anterior dejan de servir (rotación). Uno inválido, vencido, ya usado o de una sesión cerrada responde `401 UNAUTHENTICATED`.
+- `POST /api/auth/logout` con `Authorization: Bearer <accessToken>` responde `204` y cierra solo esa sesión. Sin token o con uno inválido también responde `204`.
+
+```bash
+curl -s -X POST http://localhost:3000/api/auth/refresh -H "Content-Type: application/json" -d '{"refreshToken":"<refreshToken>"}'
+curl -i -X POST http://localhost:3000/api/auth/logout -H "Authorization: Bearer <accessToken>"
+```
+
+Después de actualizar `develop`, corre `npm run migrate`: S4-02 agrega la migración `004_session_refresh.sql`.
 
 ### Recuperación de acceso (S4-19)
 

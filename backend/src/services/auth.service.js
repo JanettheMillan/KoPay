@@ -93,6 +93,30 @@ function createAuthService({ store, passwordService = passwords, sessionService 
     },
 
     /**
+     * Renueva la sesión con `refreshToken` (S4-02, contrato §3.5). Responde
+     * igual que el login, con tokens nuevos; el refreshToken usado deja de
+     * servir. Lanza `HttpError` 400 si falta y 401 `UNAUTHENTICATED` si no
+     * es válido, venció, ya se usó o la cuenta ya no existe.
+     */
+    async refresh(body) {
+      const token =
+        body !== null && typeof body === 'object' ? body.refreshToken : undefined;
+      if (typeof token !== 'string' || token.trim() === '') {
+        throw new HttpError(400, 'Revisa los datos marcados', {
+          fields: { refreshToken: REFRESH_TOKEN_REQUIRED },
+        });
+      }
+      const renewed = await sessionService.refresh(token);
+      const user = renewed ? await store.findUserById(renewed.userId) : null;
+      if (!user) {
+        throw new HttpError(401, UNAUTHENTICATED_MESSAGE, {
+          code: ERROR_CODES.UNAUTHENTICATED,
+        });
+      }
+      return { ...renewed.tokens, user: publicUser(user) };
+    },
+
+    /**
      * Cuenta de la sesión actual (`GET /api/auth/me`), o `null` si la
      * cuenta ya no existe.
      */
@@ -102,6 +126,10 @@ function createAuthService({ store, passwordService = passwords, sessionService 
     },
   };
 }
+
+/** Mensajes de la renovación (contrato §3.5). */
+const REFRESH_TOKEN_REQUIRED = 'Falta el refreshToken';
+const UNAUTHENTICATED_MESSAGE = 'Inicia sesión para continuar';
 
 function emailTaken() {
   return new HttpError(409, 'Ya existe una cuenta con ese correo', {
