@@ -17,7 +17,7 @@ const { createSessionService } = require('./services/session.service');
  * con supertest. Las dependencias se pueden reemplazar en las pruebas.
  */
 function createApp({ config = loadConfig(), store = createMemoryStore(), now } = {}) {
-  const sessionService = createSessionService({ store, now });
+  const sessionService = createSessionService({ store, now, secret: config.jwtSecret });
   const services = {
     healthService: createHealthService({ store, config }),
     sessionService,
