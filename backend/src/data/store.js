@@ -13,6 +13,18 @@ function createMemoryStore({ now = () => new Date() } = {}) {
   const usersByEmail = new Map();
   /** Sesiones por hash del token, como el índice único de `sessions`. */
   const sessionsByTokenHash = new Map();
+  /**
+   * Permisos de contador por `id`, como la tabla `accountant_access`
+   * (docs/reglas-roles-contador.md, sección 6). Uno revocado se conserva
+   * con su `revokedAt`, como historial.
+   */
+  const grantsById = new Map();
+
+  /** Permiso vigente (`revokedAt` nulo) de esa pareja, o `undefined`. */
+  const activeGrant = (userId, accountantId) =>
+    [...grantsById.values()].find(
+      (g) => g.userId === userId && g.accountantId === accountantId && g.revokedAt === null,
+    );
 
   return {
     kind: 'memory',
@@ -79,6 +91,58 @@ function createMemoryStore({ now = () => new Date() } = {}) {
     async findSessionByTokenHash(tokenHash) {
       const session = sessionsByTokenHash.get(tokenHash);
       return session ? { ...session } : null;
+    },
+
+    /**
+     * Concede a `accountantId` acceso a las finanzas de `userId` (S4-05).
+     * Si la pareja ya tiene un permiso vigente lo devuelve sin crear otro,
+     * igual que el índice único parcial de la sección 6. Devuelve
+     * `{ grant, created }`. Los roles los revisa el servicio.
+     */
+    async createGrant({ userId, accountantId }) {
+      const existing = activeGrant(userId, accountantId);
+      if (existing) return { grant: { ...existing }, created: false };
+      const grant = {
+        id: randomUUID(),
+        userId,
+        accountantId,
+        grantedAt: now().toISOString(),
+        revokedAt: null,
+      };
+      grantsById.set(grant.id, grant);
+      return { grant: { ...grant }, created: true };
+    },
+
+    /** Permisos vigentes que dio `userId`, del más antiguo al más nuevo. */
+    async listActiveGrantsByUser(userId) {
+      return [...grantsById.values()]
+        .filter((g) => g.userId === userId && g.revokedAt === null)
+        .sort((a, b) => a.grantedAt.localeCompare(b.grantedAt))
+        .map((g) => ({ ...g }));
+    },
+
+    /** Permiso vigente entre `userId` y `accountantId`, o `null`. */
+    async findActiveGrant({ userId, accountantId }) {
+      const grant = activeGrant(userId, accountantId);
+      return grant ? { ...grant } : null;
+    },
+
+    /**
+     * Revoca el permiso `grantId` solo si es de `userId` y sigue vigente.
+     * Devuelve `true` si lo revocó. No borra nada: llena `revokedAt`.
+     */
+    async revokeGrant({ grantId, userId }) {
+      const grant = grantsById.get(grantId);
+      if (!grant || grant.userId !== userId || grant.revokedAt !== null) return false;
+      grant.revokedAt = now().toISOString();
+      return true;
+    },
+
+    /** Todos los permisos de `userId`, incluidos los revocados (historial). */
+    async listGrantsByUser(userId) {
+      return [...grantsById.values()]
+        .filter((g) => g.userId === userId)
+        .map((g) => ({ ...g }));
     },
   };
 }

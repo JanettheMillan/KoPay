@@ -5,7 +5,9 @@ const express = require('express');
 const { loadConfig } = require('./config');
 const { createMemoryStore } = require('./data/store');
 const { errorHandler, notFound } = require('./middleware/errors');
+const { createRbac } = require('./middleware/rbac');
 const { apiRoutes } = require('./routes');
+const { createAccountantAccessService } = require('./services/accountant-access.service');
 const { createAuthService } = require('./services/auth.service');
 const { createHealthService } = require('./services/health.service');
 const { createSessionService } = require('./services/session.service');
@@ -20,6 +22,11 @@ function createApp({ config = loadConfig(), store = createMemoryStore(), now } =
     healthService: createHealthService({ store, config }),
     sessionService,
     authService: createAuthService({ store, sessionService }),
+    accountantAccessService: createAccountantAccessService({ store }),
+    // El rol se lee de la base en cada petición (S4-04).
+    rbac: createRbac({
+      getUserRole: async (userId) => (await store.findUserById(userId))?.role ?? null,
+    }),
   };
 
   const app = express();
