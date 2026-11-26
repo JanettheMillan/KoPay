@@ -4,8 +4,8 @@
 // tests no deben hacer I/O real) y comprueba la lista y el resumen.
 // EDIT-02 usa SQLite real fuera de `testWidgets` para comprobar que la
 // edición persiste. DEL-01 comprueba el borrado existente en el
-// proveedor y su efecto en Inicio. DEL-02 queda omitido: la interfaz
-// todavía no ofrece borrar un movimiento.
+// proveedor y su efecto en Inicio. DEL-02 recorre el borrado desde la
+// hoja de edición con su confirmación (corregido en #185).
 //
 // Los casos y su resultado están en docs/casos-hu-05-06.md.
 
@@ -317,11 +317,8 @@ void main() {
     expect(app.db.movements.single.description, 'Camión');
   });
 
-  // Cuando se implemente el control de borrado en la hoja de edición
-  // (#185), quitar el `skip` y completar los pasos con las teclas
-  // `movement-delete`, `movement-delete-cancel` y
-  // `movement-delete-confirm`. El issue de bug enlazado en
-  // docs/casos-hu-05-06.md es el seguimiento de esa implementación.
+  // Corregido en #185: la hoja de edición tiene "Eliminar movimiento"
+  // con confirmación (`movement-delete`, `-cancel` y `-confirm`).
   testWidgets(
     'DEL-02 · HU-06 · eliminar pide confirmación, cancelar conserva y '
     'confirmar borra y actualiza el resumen',
@@ -343,7 +340,12 @@ void main() {
       expect(find.text('¿Eliminar movimiento?'), findsOneWidget);
 
       await tapKey(tester, 'movement-delete-cancel');
-      expect(find.text('Café'), findsOneWidget);
+      // Cancelar conserva el registro y deja la hoja abierta.
+      expect(find.text('Editar movimiento'), findsOneWidget);
+      expect(
+        find.byKey(Key('history-movement-${guardado.id}')),
+        findsOneWidget,
+      );
       expect(await app.db.getMovement(guardado.id!), isNotNull);
 
       await tapKey(tester, 'movement-delete');
@@ -354,8 +356,5 @@ void main() {
       await goTo(tester, 'Inicio');
       expect(balance(tester), r'$0.00');
     },
-    // Bloqueado: la interfaz no ofrece borrar un movimiento (HU-06).
-    // Ver el issue de bug enlazado en docs/casos-hu-05-06.md.
-    skip: true,
   );
 }

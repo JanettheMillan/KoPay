@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import '../models/movement_model.dart';
 import '../providers/movement_provider.dart';
 import '../utils/app_colors.dart';
+import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
 import '../utils/validators.dart';
 import 'category_picker_sheet.dart';
+import 'delete_record_button.dart';
 import 'ui_kit.dart';
 
 /// Abre el formulario de gasto o movimiento. Con [initial] edita ese
@@ -120,6 +122,24 @@ class _AddMovementSheetState extends State<AddMovementSheet> {
     }
   }
 
+  /// Borra el movimiento en edición (#185, HU-06), cierra la hoja y avisa.
+  /// Inicio y Movimientos se actualizan porque escuchan al provider.
+  Future<void> _delete() async {
+    final s = AppStrings.read(context);
+    final provider = context.read<MovementProvider>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = true);
+    try {
+      await provider.delete(widget.initial!.id!);
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(s.movementDeleted)));
+    } catch (_) {
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(s.removeError)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = _isEditing
@@ -214,6 +234,17 @@ class _AddMovementSheetState extends State<AddMovementSheet> {
               saving: _saving,
               onPressed: _save,
             ),
+            // Un pago no se borra aquí: hoy no devolvería el saldo a su
+            // tarjeta o deuda (pendiente anotado en #18).
+            if (_isEditing && !widget.initial!.isPayment)
+              DeleteRecordButton(
+                keyPrefix: 'movement',
+                label: AppStrings.of(context).deleteMovement,
+                title: AppStrings.of(context).deleteMovementTitle,
+                recordName: widget.initial!.description,
+                enabled: !_saving,
+                onConfirmed: _delete,
+              ),
           ],
         ),
       ),
