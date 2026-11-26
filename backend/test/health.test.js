@@ -44,7 +44,7 @@ describe('Errores', () => {
     const res = await request(createApp()).get('/api/no-existe');
 
     expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: 'Ruta no encontrada' });
+    expect(res.body).toEqual({ error: 'Ruta no encontrada', code: 'NOT_FOUND' });
   });
 
   test('API-04 · HU-30 · un JSON mal formado responde 400 sin detalles internos', async () => {
@@ -54,7 +54,7 @@ describe('Errores', () => {
       .send('{"roto":');
 
     expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: 'JSON inválido' });
+    expect(res.body).toEqual({ error: 'JSON inválido', code: 'INVALID_JSON' });
     expect(res.headers['x-powered-by']).toBeUndefined();
   });
 });
