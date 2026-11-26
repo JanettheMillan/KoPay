@@ -99,6 +99,18 @@ class AppStrings {
     required this.saveError,
     required this.removeError,
     required this.debtGone,
+    required this.registerTitle,
+    required this.registerSubtitle,
+    required this.nameLabel,
+    required this.nameHint,
+    required this.emailLabel,
+    required this.emailHint,
+    required this.passwordLabel,
+    required this.passwordHint,
+    required this.showPassword,
+    required this.hidePassword,
+    required this.createAccount,
+    required this.haveAccount,
   });
 
   final String navHome;
@@ -202,6 +214,20 @@ class AppStrings {
   final String saveError;
   final String removeError;
   final String debtGone;
+  // Crear cuenta (S3-10). Los errores de cada campo vienen del contrato
+  // de la API y están en español (AuthValidators).
+  final String registerTitle;
+  final String registerSubtitle;
+  final String nameLabel;
+  final String nameHint;
+  final String emailLabel;
+  final String emailHint;
+  final String passwordLabel;
+  final String passwordHint;
+  final String showPassword;
+  final String hidePassword;
+  final String createAccount;
+  final String haveAccount;
 
   static const AppStrings es = AppStrings._(
     navHome: 'Inicio',
@@ -301,6 +327,18 @@ class AppStrings {
     saveError: 'No se pudo guardar. Intenta de nuevo.',
     removeError: 'No se pudo eliminar. Intenta de nuevo.',
     debtGone: 'La deuda ya no existe.',
+    registerTitle: 'Crear cuenta',
+    registerSubtitle: 'Guarda tus finanzas en tu cuenta de KoPay.',
+    nameLabel: 'Nombre',
+    nameHint: 'Ej. Ana López',
+    emailLabel: 'Correo',
+    emailHint: 'tu@correo.com',
+    passwordLabel: 'Contraseña',
+    passwordHint: '8 o más, con letras y números',
+    showPassword: 'Mostrar contraseña',
+    hidePassword: 'Ocultar contraseña',
+    createAccount: 'Crear cuenta',
+    haveAccount: '¿Ya tienes cuenta? Inicia sesión',
   );
 
   static const AppStrings en = AppStrings._(
@@ -396,6 +434,18 @@ class AppStrings {
     saveError: 'Could not save. Try again.',
     removeError: 'Could not delete. Try again.',
     debtGone: 'This debt no longer exists.',
+    registerTitle: 'Create account',
+    registerSubtitle: 'Keep your finances in your KoPay account.',
+    nameLabel: 'Name',
+    nameHint: 'e.g. Ana López',
+    emailLabel: 'Email',
+    emailHint: 'you@email.com',
+    passwordLabel: 'Password',
+    passwordHint: '8 or more, with letters and numbers',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    createAccount: 'Create account',
+    haveAccount: 'Already have an account? Sign in',
   );
 
   /// Reemplaza `{a}`, `{b}`, `{c}`, `{d}` de [template] por [values].
