@@ -112,6 +112,13 @@ class AppStrings {
     required this.noPayments,
     required this.nothingToPay,
     required this.paymentsKept,
+    required this.deleteMovement,
+    required this.deleteMovementTitle,
+    required this.movementDeleted,
+    required this.deleteIncome,
+    required this.deleteIncomeTitle,
+    required this.incomeDeleted,
+    required this.deleteRecordBody,
     required this.registerTitle,
     required this.registerSubtitle,
     required this.nameLabel,
@@ -242,6 +249,15 @@ class AppStrings {
   final String noPayments;
   final String nothingToPay;
   final String paymentsKept;
+
+  // Eliminar un movimiento o ingreso desde su hoja de edición (#185, HU-06).
+  final String deleteMovement;
+  final String deleteMovementTitle;
+  final String movementDeleted;
+  final String deleteIncome;
+  final String deleteIncomeTitle;
+  final String incomeDeleted;
+  final String deleteRecordBody;
   // Crear cuenta (S3-10). Los errores de cada campo vienen del contrato
   // de la API y están en español (AuthValidators).
   final String registerTitle;
@@ -368,6 +384,14 @@ class AppStrings {
     noPayments: 'Sin pagos registrados.',
     nothingToPay: 'No hay saldo por pagar.',
     paymentsKept: 'Sus pagos se conservan en Movimientos.',
+    deleteMovement: 'Eliminar movimiento',
+    deleteMovementTitle: '¿Eliminar movimiento?',
+    movementDeleted: 'Movimiento eliminado',
+    deleteIncome: 'Eliminar ingreso',
+    deleteIncomeTitle: '¿Eliminar ingreso?',
+    incomeDeleted: 'Ingreso eliminado',
+    deleteRecordBody:
+        'Se eliminará "{a}" y se recalculará el resumen. Esta acción no se puede deshacer.',
     registerTitle: 'Crear cuenta',
     registerSubtitle: 'Guarda tus finanzas en tu cuenta de KoPay.',
     nameLabel: 'Nombre',
@@ -488,6 +512,14 @@ class AppStrings {
     noPayments: 'No payments yet.',
     nothingToPay: 'Nothing left to pay.',
     paymentsKept: 'Its payments stay in Activity.',
+    deleteMovement: 'Delete movement',
+    deleteMovementTitle: 'Delete movement?',
+    movementDeleted: 'Movement deleted',
+    deleteIncome: 'Delete income',
+    deleteIncomeTitle: 'Delete income?',
+    incomeDeleted: 'Income deleted',
+    deleteRecordBody:
+        '"{a}" will be deleted and the summary recalculated. This cannot be undone.',
     registerTitle: 'Create account',
     registerSubtitle: 'Keep your finances in your KoPay account.',
     nameLabel: 'Name',

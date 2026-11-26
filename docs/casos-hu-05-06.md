@@ -13,7 +13,7 @@ El plan de pruebas no tiene un caso formal de eliminación de movimientos. La ed
 | EDIT-01 | HU-05 | Integración | Gasto "Café" de 50 en Comida. Tocar la fila en Movimientos, cambiar a "Desayuno" y 80, guardar. Abrir Inicio. | La lista y el resumen muestran los datos nuevos; la base en memoria recibe descripción, importe y categoría. El registro anterior ya no aparece. |
 | EDIT-02 | HU-05 | Integración | Gasto "Café" de 50 en SQLite real. Actualizar a "Desayuno" y 80 con `MovementProvider.update`; releer la base y recargar el proveedor. | La base conserva los datos nuevos y el proveedor los lee otra vez. |
 | DEL-01 | HU-06 | Integración | Dos gastos del mes: "Café" de 50 y "Camión" de 30. Borrar "Café" con `MovementProvider.delete`. | "Café" desaparece de Movimientos e Inicio; los gastos bajan a 30 y el balance a −30; la base ya no contiene el registro. "Camión" se conserva. |
-| DEL-02 | HU-06 | Interfaz | Abrir "Café" desde Movimientos y usar el control de eliminar. Cancelar y después confirmar. | Cancelar conserva el registro; confirmar pide confirmación, lo elimina y actualiza el resumen. **Bloqueado:** la interfaz no ofrece el control. |
+| DEL-02 | HU-06 | Interfaz | Abrir "Café" desde Movimientos y usar el control de eliminar. Cancelar y después confirmar. | Cancelar conserva el registro; confirmar pide confirmación, lo elimina y actualiza el resumen. Corregido en #185: ahora se ejecuta. |
 
 ## 2. Ejecución
 
@@ -44,6 +44,20 @@ Salida real: `00:01 +3 ~1: All tests passed!` (3 aprobadas, 1 omitida).
 - **Efecto:** el usuario no puede corregir un movimiento equivocado desde la app; solo puede editar sus datos.
 - **Propuesta:** agregar en la hoja de edición un botón "Eliminar" con confirmación (`¿Eliminar movimiento?`), usar `MovementProvider.delete`, cerrar la hoja, avisar "Movimiento eliminado" y refrescar Inicio y Movimientos.
 - **Seguimiento:** [#185](https://github.com/JanettheMillan/KoPay/issues/185) (etiqueta `bug`, asignado a `JanettheMillan`).
+- **Corrección (#185):** la hoja "Editar movimiento" y la de "Editar ingreso" tienen **Eliminar**, con confirmación. Cancelar conserva el registro y la hoja sigue abierta. Confirmar lo borra con el provider, cierra la hoja, avisa "Movimiento eliminado" o "Ingreso eliminado", y Inicio y Movimientos se actualizan. Un pago de tarjeta o deuda no ofrece Eliminar, porque hoy no devolvería el saldo (pendiente anotado en #18).
+
+### Reejecución tras corregir D-08
+
+Comando: `flutter test test/edit_delete_movements_test.dart test/delete_records_test.dart`. Resultado: 7 aprobadas, 0 omitidas.
+
+| Caso | Resultado | Observado |
+| :--- | :--- | :--- |
+| DEL-02 | **Aprobado** | "Eliminar movimiento" abre `¿Eliminar movimiento?`. Cancelar deja "Café" en el historial y en la base; confirmar lo quita y el balance de Inicio vuelve a `$0.00`. |
+| DEL-03 | **Aprobado** (nuevo) | Lo mismo con un ingreso: cancelar conserva "Nómina" y confirmar lo borra y avisa "Ingreso eliminado". |
+| DEL-04 | **Aprobado** (nuevo) | Un registro nuevo y un pago no muestran Eliminar. |
+| DEL-05 | **Aprobado** (nuevo) | En inglés: "Delete income" y "Delete income?". |
+
+**D-08 queda corregido.** La tabla de arriba conserva el resultado de la primera ejecución.
 
 ## 4. Pruebas existentes que se conservan
 

@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import '../models/income_model.dart';
 import '../providers/income_provider.dart';
 import '../utils/app_colors.dart';
+import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
 import '../utils/validators.dart';
+import 'delete_record_button.dart';
 import 'ui_kit.dart';
 
 /// Abre el formulario de ingreso. Con [initial] edita ese registro.
@@ -61,6 +63,23 @@ class _AddIncomeSheetState extends State<AddIncomeSheet> {
   Future<void> _chooseDate() async {
     final picked = await pickDate(context, _date);
     if (picked != null) setState(() => _date = picked);
+  }
+
+  /// Borra el ingreso en edición (#185, HU-06), cierra la hoja y avisa.
+  Future<void> _delete() async {
+    final s = AppStrings.read(context);
+    final provider = context.read<IncomeProvider>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = true);
+    try {
+      await provider.delete(widget.initial!.id!);
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(s.incomeDeleted)));
+    } catch (_) {
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(s.removeError)));
+    }
   }
 
   Future<void> _save() async {
@@ -168,6 +187,15 @@ class _AddIncomeSheetState extends State<AddIncomeSheet> {
               saving: _saving,
               onPressed: _save,
             ),
+            if (_isEditing)
+              DeleteRecordButton(
+                keyPrefix: 'income',
+                label: AppStrings.of(context).deleteIncome,
+                title: AppStrings.of(context).deleteIncomeTitle,
+                recordName: widget.initial!.name,
+                enabled: !_saving,
+                onConfirmed: _delete,
+              ),
           ],
         ),
       ),
