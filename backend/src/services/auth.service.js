@@ -1,7 +1,11 @@
 'use strict';
 
 const { ERROR_CODES, HttpError } = require('../errors');
-const { normalizeEmail, validateRegistration } = require('../validators/auth.validator');
+const {
+  normalizeEmail,
+  validateLogin,
+  validateRegistration,
+} = require('../validators/auth.validator');
 const passwords = require('./password.service');
 
 /** Rol de toda cuenta creada desde la app. Los contadores se crean fuera (S3-14). */
@@ -12,11 +16,14 @@ function publicUser({ id, name, email, role, createdAt }) {
   return { id, name, email, role, createdAt };
 }
 
+/** Mensaje igual para correo inexistente y contraseña incorrecta. */
+const INVALID_CREDENTIALS_MESSAGE = 'Correo o contraseña incorrectos';
+
 /**
  * Cuentas de usuario (HU-30, HU-31). `passwordService` se puede
- * reemplazar en las pruebas.
+ * reemplazar en las pruebas. `sessionService` abre la sesión del login.
  */
-function createAuthService({ store, passwordService = passwords }) {
+function createAuthService({ store, passwordService = passwords, sessionService }) {
   // Hash de relleno para comparar cuando el correo no existe, así las
   // dos respuestas tardan lo mismo (contrato, sección 3.2). Se calcula
   // una sola vez, la primera vez que se necesita.
@@ -63,6 +70,36 @@ function createAuthService({ store, passwordService = passwords }) {
       );
       return user && ok ? publicUser(user) : null;
     },
+
+    /**
+     * Inicia sesión (HU-31, S3-09). Devuelve `{ accessToken, tokenType,
+     * expiresIn, user }`. Lanza `HttpError` 400 con `fields` si falta un
+     * campo y 401 `INVALID_CREDENTIALS`, con el mismo cuerpo, si el correo
+     * no existe o la contraseña no coincide.
+     */
+    async login(body) {
+      const { value, fields } = validateLogin(body);
+      if (Object.keys(fields).length > 0) {
+        throw new HttpError(400, 'Revisa los datos marcados', { fields });
+      }
+      const user = await this.verifyCredentials(value.email, value.password);
+      if (!user) {
+        throw new HttpError(401, INVALID_CREDENTIALS_MESSAGE, {
+          code: ERROR_CODES.INVALID_CREDENTIALS,
+        });
+      }
+      const session = await sessionService.open(user.id);
+      return { ...session, user };
+    },
+
+    /**
+     * Cuenta de la sesión actual (`GET /api/auth/me`), o `null` si la
+     * cuenta ya no existe.
+     */
+    async currentUser(userId) {
+      const user = await store.findUserById(userId);
+      return user ? publicUser(user) : null;
+    },
   };
 }
 
@@ -72,4 +109,4 @@ function emailTaken() {
   });
 }
 
-module.exports = { DEFAULT_ROLE, createAuthService, publicUser };
+module.exports = { DEFAULT_ROLE, INVALID_CREDENTIALS_MESSAGE, createAuthService, publicUser };

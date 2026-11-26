@@ -11,6 +11,8 @@ const MESSAGES = Object.freeze({
   passwordTooShort: 'La contraseña debe tener al menos 8 caracteres',
   passwordTooLong: 'La contraseña puede tener hasta 72 caracteres',
   passwordWeak: 'La contraseña debe tener al menos una letra y un número',
+  loginEmailRequired: 'Escribe tu correo',
+  loginPasswordRequired: 'Escribe tu contraseña',
 });
 
 const NAME_MAX = 80;
@@ -63,4 +65,21 @@ function validateRegistration(body) {
   return { value: { name, email, password }, fields };
 }
 
-module.exports = { MESSAGES, normalizeEmail, validateRegistration };
+/**
+ * Revisa el login (sección 3.2): `email` y `password` son obligatorios,
+ * sin las reglas de longitud del registro. Devuelve `{ value, fields }`.
+ */
+function validateLogin(body) {
+  const input = body !== null && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  const fields = {};
+
+  const email = normalizeEmail(input.email);
+  if (email === '') fields.email = MESSAGES.loginEmailRequired;
+
+  const password = typeof input.password === 'string' ? input.password : '';
+  if (password === '') fields.password = MESSAGES.loginPasswordRequired;
+
+  return { value: { email, password }, fields };
+}
+
+module.exports = { MESSAGES, normalizeEmail, validateLogin, validateRegistration };
