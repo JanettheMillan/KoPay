@@ -135,7 +135,7 @@ Respuesta `200 OK`:
 }
 ```
 
-- `accessToken` es **opaco** para Flutter: lo guarda y lo envía, pero no lo lee. En el Sprint 3 puede ser un token de la tabla de sesiones (S3-05); en el Sprint 4 S4-01 lo cambia por un JWT sin cambiar esta respuesta.
+- `accessToken` es **opaco** para Flutter: lo guarda y lo envía, pero no lo lee. Desde S4-01 es un JWT HS256 (`sub` = id del usuario, `jti`, `iat`, `exp`) firmado con `JWT_SECRET`, y cada uno tiene su fila en `sessions` (solo el hash). La respuesta no cambió.
 - `expiresIn` está en segundos.
 - `user.role` es `user` o `accountant`. Flutter abre la vista de usuario o la de contador según este valor (HU-37).
 - A partir de S4-02 la respuesta agrega `refreshToken` y `refreshExpiresIn`. Flutter debe aceptar la respuesta con o sin ellos.

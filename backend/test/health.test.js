@@ -9,6 +9,9 @@ const { createApp } = require('../src/app');
 const { loadConfig } = require('../src/config');
 const { start } = require('../src/server');
 
+/** Desde S4-01 la sesión firma JWT: la configuración manual necesita secreto. */
+const TEST_SECRET = 'solo-pruebas-api-07-no-usar-en-produccion';
+
 describe('GET /api/health', () => {
   test('API-01 · HU-30 · responde 200 con el estado del servicio', async () => {
     const res = await request(createApp()).get('/api/health');
@@ -77,7 +80,7 @@ describe('Configuración', () => {
 describe('Servidor', () => {
   test('API-07 · HU-30 · el servidor inicia y responde en un puerto real', async () => {
     const log = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const server = await start({ port: 0, env: 'test' });
+    const server = await start({ port: 0, env: 'test', jwtSecret: TEST_SECRET });
     try {
       const { port } = server.address();
       const res = await fetch(`http://127.0.0.1:${port}/api/health`);
@@ -91,10 +94,10 @@ describe('Servidor', () => {
 
   test('API-08 · HU-30 · si el puerto está ocupado, el arranque falla', async () => {
     const log = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const first = await start({ port: 0, env: 'test' });
+    const first = await start({ port: 0, env: 'test', jwtSecret: TEST_SECRET });
     try {
       const { port } = first.address();
-      await expect(start({ port, env: 'test' })).rejects.toMatchObject({
+      await expect(start({ port, env: 'test', jwtSecret: TEST_SECRET })).rejects.toMatchObject({
         code: 'EADDRINUSE',
       });
     } finally {
