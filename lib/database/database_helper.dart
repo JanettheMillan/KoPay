@@ -21,13 +21,17 @@ class DatabaseHelper {
   /// 2: tarjetas (S2-07).
   /// 3: deudas (S2-08).
   /// 4: pagos asociados a tarjetas y deudas en `movements` (S2-09).
-  static const int version = 4;
+  /// 5: relación con los movimientos de la API (S5-07).
+  static const int version = 5;
 
   static const String movementsTable = 'movements';
   static const String incomesTable = 'incomes';
   static const String settingsTable = 'settings';
   static const String cardsTable = 'cards';
   static const String debtsTable = 'debts';
+
+  /// Qué movimiento local corresponde a cuál de la API (S5-07).
+  static const String movementRemoteTable = 'movement_remote';
 
   /// Categoría con la que se guardan los pagos de tarjeta y de deuda.
   static const String paymentCategory = 'Pago';
@@ -128,6 +132,7 @@ class DatabaseHelper {
 
     _createCardsTable(batch);
     _createDebtsTable(batch);
+    _createMovementRemoteTable(batch);
 
     await batch.commit(noResult: true);
   }
@@ -138,7 +143,22 @@ class DatabaseHelper {
     if (oldVersion < 2) _createCardsTable(batch);
     if (oldVersion < 3) _createDebtsTable(batch);
     if (oldVersion < 4) _addPaymentColumns(batch);
+    if (oldVersion < 5) _createMovementRemoteTable(batch);
     await batch.commit(noResult: true);
+  }
+
+  /// Relación entre un movimiento local y el de la API (S5-07): su `id`
+  /// en el servidor (UUID) y la `version` que se leyó. Un movimiento sin
+  /// fila aquí solo existe en el teléfono. Es una tabla aparte para no
+  /// cambiar `Movement` ni el respaldo XLSX.
+  static void _createMovementRemoteTable(Batch batch) {
+    batch.execute('''
+      CREATE TABLE $movementRemoteTable (
+        movement_id INTEGER PRIMARY KEY,
+        remote_id TEXT NOT NULL UNIQUE,
+        version INTEGER NOT NULL CHECK (version > 0)
+      )
+    ''');
   }
 
   /// Tabla de tarjetas (S2-07). Los importes no pueden ser negativos y
@@ -241,10 +261,104 @@ class DatabaseHelper {
     );
   }
 
-  /// Borra el movimiento. Devuelve cuántas filas se borraron.
+  /// Borra el movimiento y su relación con la API, si tiene. Devuelve
+  /// cuántos movimientos se borraron.
   Future<int> deleteMovement(int id) async {
     final db = await database;
-    return db.delete(movementsTable, where: 'id = ?', whereArgs: [id]);
+    return db.transaction((txn) async {
+      await txn.delete(
+        movementRemoteTable,
+        where: 'movement_id = ?',
+        whereArgs: [id],
+      );
+      return txn.delete(movementsTable, where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  // ── Movimientos de la API (S5-07) ────────────────────────────
+
+  /// `id` en el servidor y versión del movimiento local [movementId], o
+  /// `null` si solo existe en el teléfono.
+  Future<({String remoteId, int version})?> getMovementRemote(
+    int movementId,
+  ) async {
+    final db = await database;
+    final rows = await db.query(
+      movementRemoteTable,
+      where: 'movement_id = ?',
+      whereArgs: [movementId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return (
+      remoteId: rows.first['remote_id'] as String,
+      version: rows.first['version'] as int,
+    );
+  }
+
+  /// Guarda o actualiza la relación de [movementId] con el servidor.
+  Future<void> setMovementRemote(
+    int movementId, {
+    required String remoteId,
+    required int version,
+  }) async {
+    final db = await database;
+    await db.insert(movementRemoteTable, {
+      'movement_id': movementId,
+      'remote_id': remoteId,
+      'version': version,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Movimientos normales que solo existen en el teléfono (sin relación
+  /// con la API), del más antiguo al más reciente. Los pagos no cuentan:
+  /// se manejan desde su tarjeta o deuda (S5-05).
+  Future<List<Movement>> getLocalOnlyMovements() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT m.* FROM $movementsTable m
+      WHERE m.type = 'regular'
+        AND m.id NOT IN (SELECT movement_id FROM $movementRemoteTable)
+      ORDER BY m.date ASC, m.id ASC
+    ''');
+    return rows.map(Movement.fromMap).toList();
+  }
+
+  /// Reemplaza la copia local de los movimientos de la API por [remote],
+  /// en una sola transacción. Solo toca los que tienen relación con la
+  /// API: los que existen solo en el teléfono y los pagos se conservan.
+  Future<void> replaceRemoteMovements(
+    List<({String remoteId, int version, Movement movement})> remote,
+  ) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await _deleteRemoteMovements(txn);
+      for (final r in remote) {
+        final map = r.movement.toMap()..remove('id');
+        final id = await txn.insert(movementsTable, map);
+        await txn.insert(movementRemoteTable, {
+          'movement_id': id,
+          'remote_id': r.remoteId,
+          'version': r.version,
+        });
+      }
+    });
+  }
+
+  /// Borra la copia local de los movimientos de la API (al cerrar sesión
+  /// o cambiar de cuenta), para que otra cuenta en el mismo teléfono no
+  /// los vea. Los que existen solo en el teléfono y los pagos se quedan.
+  Future<void> clearRemoteMovements() async {
+    final db = await database;
+    await db.transaction(_deleteRemoteMovements);
+  }
+
+  static Future<void> _deleteRemoteMovements(Transaction txn) async {
+    await txn.rawDelete('''
+      DELETE FROM $movementsTable
+      WHERE id IN (SELECT movement_id FROM $movementRemoteTable)
+    ''');
+    await txn.delete(movementRemoteTable);
   }
 
   // ── Ingresos ─────────────────────────────────────────────────
@@ -615,6 +729,7 @@ class DatabaseHelper {
     incomesTable,
     cardsTable,
     debtsTable,
+    movementRemoteTable,
   ];
 
   /// Borra todos los registros de [financialTables] en una sola
