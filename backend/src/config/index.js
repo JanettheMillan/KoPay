@@ -12,8 +12,9 @@ const dotenv = require('dotenv');
  *
  * - `development` y `test` funcionan sin `.env`: usan valores locales
  *   que no sirven fuera de la computadora del desarrollador.
- * - `production` exige `DATABASE_URL`, un `JWT_SECRET` real y el correo
- *   SMTP (S4-19); si falta alguno, el servidor no arranca.
+ * - `production` exige `DATABASE_URL`, un `JWT_SECRET` real,
+ *   `CORS_ORIGIN`, el correo SMTP (S4-19) y `BANXICO_TOKEN` (S5-06); si
+ *   falta alguno, el servidor no arranca.
  *
  * Los secretos van en `backend/.env` (nunca se sube) o en las variables
  * del servicio donde se despliegue. La plantilla es `.env.example`.
@@ -32,6 +33,15 @@ const SMTP_VARIABLES = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'MAI
 
 /** Remitente de los correos de prueba (`jsonTransport`, no se envían). */
 const LOCAL_MAIL_FROM = 'KoPay <no-reply@kopay.local>';
+
+/** Valor de ejemplo de `BANXICO_TOKEN` en `.env.example` (S5-06). */
+const EXAMPLE_BANXICO_TOKEN = 'pega-aqui-tu-token-de-banxico';
+
+/**
+ * Token del SIE de Banxico: 64 caracteres hexadecimales. Cada integrante
+ * saca el suyo; nunca se comparte ni se sube.
+ */
+const BANXICO_TOKEN_PATTERN = /^[0-9a-f]{64}$/i;
 
 /** Valores locales para desarrollo y pruebas, nunca para producción. */
 const LOCAL_DEFAULTS = {
@@ -82,6 +92,9 @@ function loadConfig(env = process.env) {
   const jwtSecret = read(env, 'JWT_SECRET') ?? local.jwtSecret;
   const corsOrigin = read(env, 'CORS_ORIGIN') ?? local.corsOrigin;
   const mail = readMail(env, name);
+  // Sin valor local: sin token, el tipo de cambio responde 503 (S5-06).
+  const banxicoRaw = read(env, 'BANXICO_TOKEN');
+  const banxicoToken = banxicoRaw === EXAMPLE_BANXICO_TOKEN ? undefined : banxicoRaw;
 
   if (name === 'production') {
     const problems = [];
@@ -102,6 +115,13 @@ function loadConfig(env = process.env) {
     if (read(env, 'SMTP_PORT') !== undefined && mail.port === undefined) {
       problems.push('SMTP_PORT debe ser un número de 1 a 65535');
     }
+    if (!banxicoRaw) {
+      problems.push('falta BANXICO_TOKEN');
+    } else if (banxicoRaw === EXAMPLE_BANXICO_TOKEN) {
+      problems.push('BANXICO_TOKEN tiene el valor de ejemplo');
+    } else if (!BANXICO_TOKEN_PATTERN.test(banxicoRaw)) {
+      problems.push('BANXICO_TOKEN debe tener 64 caracteres hexadecimales');
+    }
     if (problems.length > 0) {
       throw new Error(`Configuración de producción incompleta: ${problems.join('; ')}.`);
     }
@@ -114,6 +134,7 @@ function loadConfig(env = process.env) {
     databaseUrl,
     jwtSecret,
     corsOrigin,
+    banxicoToken,
     mail,
   });
 }
@@ -165,11 +186,13 @@ function describeConfig(config) {
       config.mail?.transport === 'smtp'
         ? `SMTP ${config.mail.host ? 'definido' : 'sin definir'}`
         : 'jsonTransport (sin envío real)',
+    banxicoToken: config.banxicoToken ? 'definido' : 'sin definir',
   };
 }
 
 module.exports = {
   ENVIRONMENTS,
+  EXAMPLE_BANXICO_TOKEN,
   EXAMPLE_SECRET,
   MIN_SECRET_LENGTH,
   SMTP_VARIABLES,

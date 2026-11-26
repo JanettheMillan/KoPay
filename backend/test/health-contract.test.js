@@ -65,6 +65,7 @@ describe('Contrato de salud', () => {
       SMTP_USER: 'kopay@example.com',
       SMTP_PASS: 'clave-smtp-secreta',
       MAIL_FROM: 'KoPay <kopay@example.com>',
+      BANXICO_TOKEN: 'b'.repeat(64),
     });
     const res = await request(createApp({ config })).get('/api/health');
     const texto = JSON.stringify(res.body);

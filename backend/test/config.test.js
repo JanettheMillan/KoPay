@@ -29,6 +29,8 @@ const PROD = {
   SMTP_USER: 'kopay@example.com',
   SMTP_PASS: 'clave-smtp-secreta',
   MAIL_FROM: 'KoPay <kopay@example.com>',
+  // Token de mentira con el formato de Banxico (S5-06).
+  BANXICO_TOKEN: 'b'.repeat(64),
 };
 
 describe('Ambientes', () => {

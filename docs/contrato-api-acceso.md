@@ -258,6 +258,39 @@ Requiere `Authorization: Bearer <accessToken>` de una cuenta `accountant`. Cada 
 - Una cuenta `user` recibe `403` en todas estas rutas.
 - S5-03 agrega `GET /api/clients/:userId/summary` y `GET /api/clients/:userId/movements` (sección 7 de las reglas) detrás del mismo guardia.
 
+### 3.11 `GET /api/exchange-rates` · Tipo de cambio (HU-35, S5-06)
+
+Requiere `Authorization: Bearer <accessToken>` de cualquier rol (`user` o `accountant`). No lleva cuerpo ni parámetros.
+
+Devuelve el **tipo de cambio FIX USD/MXN** que publica Banxico (serie SF43718 del SIE). Respuesta `200 OK`:
+
+```json
+{ "base": "USD", "quote": "MXN", "rate": 17.2345, "date": "2026-11-25", "source": "Banxico FIX" }
+```
+
+| Campo | Tipo | Valor |
+| :--- | :--- | :--- |
+| `base` | texto | Siempre `"USD"`. |
+| `quote` | texto | Siempre `"MXN"`. |
+| `rate` | número | Pesos por dólar, tal como lo publica Banxico (hasta 4 decimales). |
+| `date` | texto | Día del FIX, `AAAA-MM-DD`. En fin de semana o festivo es el **último publicado**, así que puede ser anterior a hoy. |
+| `source` | texto | Siempre `"Banxico FIX"`. Flutter lo muestra como fuente. |
+
+- El servidor guarda la respuesta **una hora** en memoria: el FIX cambia una vez al día y Banxico limita las consultas por token. Dentro de esa hora todas las cuentas reciben el mismo valor sin consultar a Banxico.
+- Es **informativo**: no convierte ni guarda montos de la persona.
+- Flutter debe mostrar la fecha junto al valor (por ejemplo, "FIX del 25 nov 2026") y, con `503`, un aviso sin bloquear el resto de la pantalla.
+
+Errores:
+
+| Estado | `code` | Cuándo | `error` |
+| :---: | :--- | :--- | :--- |
+| 401 | `UNAUTHENTICATED` | Sin sesión o con un token inválido o expirado. No se consulta a Banxico. | `Inicia sesión para continuar` |
+| 503 | `UNAVAILABLE` | Banxico no respondió en 5 segundos, respondió con error, rechazó el token del servidor, llegó al límite de consultas o mandó una respuesta sin un dato válido. También si el servidor no tiene `BANXICO_TOKEN` (solo posible en `development` y `test`). | `El tipo de cambio no está disponible. Inténtalo más tarde.` |
+
+- El `503` no dice la causa. El servidor anota solo el motivo en la consola (por ejemplo, "Banxico respondió 400" con un token inválido), nunca el token.
+- Un fallo no se guarda en caché: la siguiente petición vuelve a intentar.
+- `BANXICO_TOKEN` va en `backend/.env` y es obligatorio en `production` (64 caracteres hexadecimales). Cada integrante saca su propio token; no se comparte ni se sube.
+
 ## 4. Resumen de rutas
 
 | Método y ruta | Sesión | Tarjeta | Éxito | Errores propios |
@@ -274,6 +307,7 @@ Requiere `Authorization: Bearer <accessToken>` de una cuenta `accountant`. Cada 
 | `POST /api/auth/reset` | No | S4-19 | `204` y cierra todas las sesiones | `VALIDATION_FAILED`, `TOO_MANY_ATTEMPTS` |
 | `GET /api/clients` | Sí, `accountant` | S4-06 | `200 { clients }` | `FORBIDDEN` |
 | `GET /api/clients/:userId` | Sí, `accountant` con permiso | S4-06 | `200 { client }` | `FORBIDDEN` |
+| `GET /api/exchange-rates` | Sí, cualquier rol | S5-06 | `200 { base, quote, rate, date, source }` | `UNAVAILABLE` |
 
 ## 5. Casos de prueba del contrato
 

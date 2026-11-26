@@ -9,6 +9,7 @@ const { createRbac } = require('./middleware/rbac');
 const { apiRoutes } = require('./routes');
 const { createAccountantAccessService } = require('./services/accountant-access.service');
 const { createAuthService } = require('./services/auth.service');
+const { createExchangeRateService } = require('./services/exchange-rate.service');
 const { createHealthService } = require('./services/health.service');
 const { createMailer } = require('./services/mail.service');
 const { createRecoveryService } = require('./services/recovery.service');
@@ -23,6 +24,7 @@ function createApp({
   store = createMemoryStore(),
   now,
   mailer = createMailer({ config }),
+  exchangeRateService = createExchangeRateService({ token: config.banxicoToken }),
 } = {}) {
   const sessionService = createSessionService({ store, now, secret: config.jwtSecret });
   const services = {
@@ -31,6 +33,7 @@ function createApp({
     authService: createAuthService({ store, sessionService }),
     recoveryService: createRecoveryService({ store, mailer, secret: config.jwtSecret, now }),
     accountantAccessService: createAccountantAccessService({ store }),
+    exchangeRateService,
     // El rol se lee de la base en cada petición (S4-04).
     rbac: createRbac({
       getUserRole: async (userId) => (await store.findUserById(userId))?.role ?? null,
