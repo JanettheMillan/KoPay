@@ -5,7 +5,7 @@
 
 Este documento fija lo que la API Node.js recibe y responde en el registro y el inicio de sesión, y la forma de **todos** los errores de la API. Node (S3-07, S3-08, S3-09, S4-01, S4-02, S4-19) lo implementa y Flutter (S3-10, S3-11, S3-12, S4-07, S4-08, S4-20) lo consume. Si una tarjeta necesita cambiarlo, el cambio se hace primero aquí, en un PR propio, y se avisa a ambos lados.
 
-La forma de los errores (sección 2) ya está implementada en `backend/src/errors.js` y `backend/src/middleware/errors.js`. `POST /api/auth/register` (S3-07), `POST /api/auth/login` y `GET /api/auth/me` (S3-09) ya existen. Las demás rutas de la sección 3 todavía no existen: las crean las tarjetas indicadas en cada una.
+La forma de los errores (sección 2) ya está implementada en `backend/src/errors.js` y `backend/src/middleware/errors.js`. `POST /api/auth/register` (S3-07), `POST /api/auth/login` y `GET /api/auth/me` (S3-09), y `POST /api/auth/recover` y `POST /api/auth/reset` (S4-19) ya existen. Las demás rutas de la sección 3 todavía no existen: las crean las tarjetas indicadas en cada una.
 
 ## 1. Reglas generales
 
@@ -195,6 +195,7 @@ Respuesta `200 OK`, **la misma exista o no una cuenta con ese correo**:
 
 - Si la cuenta existe, el servidor genera el código, guarda solo su hash y lo envía por correo. Si no existe, no hace nada más. La respuesta no espera al envío, para que las dos tarden lo mismo.
 - Pedir un código nuevo invalida el anterior de esa cuenta, aunque no haya vencido.
+- **Un correo por minuto por cuenta.** Si a esa cuenta ya se le envió un código hace menos de 60 segundos, la respuesta es la misma `200`, pero no se genera código nuevo ni se envía correo, y el anterior sigue valiendo. No se responde `429`, para no revelar que la cuenta existe.
 - El código nunca aparece en una respuesta. En `development` y `test` el correo no se envía de verdad: el código sale en la consola del servidor. En `production` nunca sale en la consola.
 - Si el correo no se puede enviar, la respuesta sigue siendo `200` con el mismo cuerpo. El servidor registra la falla sin el correo ni el código.
 - Las cuentas `accountant` también pueden recuperar su acceso.
@@ -276,7 +277,7 @@ Requiere `Authorization: Bearer <accessToken>` de una cuenta `accountant`. Cada 
 
 ## 5. Casos de prueba del contrato
 
-Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js`, CON-05 a CON-09 en `backend/test/register.test.js`, CON-10 en `backend/test/credentials.test.js` y CON-11 a CON-14 en `backend/test/login.test.js`. Los demás los automatiza la tarjeta que crea cada ruta, con el mismo identificador en el nombre de la prueba, y QA los toma en S3-16 y S3-18.
+Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js`, CON-05 a CON-09 en `backend/test/register.test.js`, CON-10 en `backend/test/credentials.test.js` CON-11 a CON-14 en `backend/test/login.test.js` y CON-17 a CON-26 y CON-28 en `backend/test/recovery.test.js`. Los demás los automatiza la tarjeta que crea cada ruta, con el mismo identificador en el nombre de la prueba, y QA los toma en S3-16 y S3-18.
 
 | Caso | Historia | Tarjeta | Qué se envía | Resultado esperado |
 | :--- | :--- | :--- | :--- | :--- |
@@ -307,6 +308,7 @@ Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js`, CON
 | CON-25 | HU-32 | S4-19 | `reset` con correo sin cuenta, y con código `12a4` y contraseña de 7 caracteres | El primero `400` igual que un código incorrecto; el segundo `400` con `fields.code` y `fields.password` |
 | CON-26 | HU-32 | S4-19 | Revisar respuestas, base y consola después de `recover` y `reset` | El código y la contraseña no aparecen en respuestas; en la base solo hay hashes; en `production` el código no sale en la consola |
 | CON-27 | HU-32 | S4-20 | Respuestas `200`, `204`, `400`, `429` y sin red en las pantallas de recuperación de Flutter | Cada una muestra el mensaje de la tabla y ningún dato privado |
+| CON-28 | HU-32 | S4-19 | `recover` dos veces en menos de un minuto para la misma cuenta, y otra vez pasado el minuto | Las tres `200` con el mismo cuerpo; solo se envían dos correos; el primer código sigue valiendo hasta que llega el segundo |
 
 ## 6. Revisión
 

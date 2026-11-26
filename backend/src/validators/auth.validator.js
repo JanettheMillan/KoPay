@@ -13,6 +13,8 @@ const MESSAGES = Object.freeze({
   passwordWeak: 'La contraseña debe tener al menos una letra y un número',
   loginEmailRequired: 'Escribe tu correo',
   loginPasswordRequired: 'Escribe tu contraseña',
+  codeRequired: 'Escribe el código de 6 dígitos',
+  codeInvalid: 'El código no es válido o ya venció',
 });
 
 const NAME_MAX = 80;
@@ -24,6 +26,8 @@ const PASSWORD_MAX = 72;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HAS_LETTER = /\p{L}/u;
 const HAS_DIGIT = /\d/;
+/** Código de recuperación: exactamente 6 dígitos (S4-19). */
+const CODE_PATTERN = /^\d{6}$/;
 
 /** Correo sin espacios al inicio o al final y en minúsculas. */
 function normalizeEmail(email) {
@@ -49,20 +53,58 @@ function validateRegistration(body) {
   if (name === '') fields.name = MESSAGES.nameRequired;
   else if (length(name) > NAME_MAX) fields.name = MESSAGES.nameTooLong;
 
-  const email = normalizeEmail(input.email);
+  const email = checkEmail(input.email, fields);
+  const password = checkPassword(input.password, fields);
+
+  return { value: { name, email, password }, fields };
+}
+
+/** Correo normalizado; anota el error en [fields] si no es válido. */
+function checkEmail(raw, fields) {
+  const email = normalizeEmail(raw);
   if (email.length > EMAIL_MAX || !EMAIL_PATTERN.test(email)) {
     fields.email = MESSAGES.emailInvalid;
   }
+  return email;
+}
 
-  // La contraseña no se recorta: los espacios cuentan.
-  const password = typeof input.password === 'string' ? input.password : '';
+/**
+ * Contraseña con las reglas del registro; anota el error en [fields].
+ * La contraseña no se recorta: los espacios cuentan.
+ */
+function checkPassword(raw, fields) {
+  const password = typeof raw === 'string' ? raw : '';
   if (length(password) < PASSWORD_MIN) fields.password = MESSAGES.passwordTooShort;
   else if (length(password) > PASSWORD_MAX) fields.password = MESSAGES.passwordTooLong;
   else if (!HAS_LETTER.test(password) || !HAS_DIGIT.test(password)) {
     fields.password = MESSAGES.passwordWeak;
   }
+  return password;
+}
 
-  return { value: { name, email, password }, fields };
+/** Pedir código de recuperación (sección 3.7): solo `email`. */
+function validateRecover(body) {
+  const fields = {};
+  const email = checkEmail(asObject(body).email, fields);
+  return { value: { email }, fields };
+}
+
+/**
+ * Cambiar la contraseña con el código (sección 3.8): `email`, `code` de
+ * exactamente 6 dígitos y `password` con las reglas del registro.
+ */
+function validateReset(body) {
+  const input = asObject(body);
+  const fields = {};
+  const email = checkEmail(input.email, fields);
+  const code = typeof input.code === 'string' ? input.code.trim() : '';
+  if (!CODE_PATTERN.test(code)) fields.code = MESSAGES.codeRequired;
+  const password = checkPassword(input.password, fields);
+  return { value: { email, code, password }, fields };
+}
+
+function asObject(body) {
+  return body !== null && typeof body === 'object' && !Array.isArray(body) ? body : {};
 }
 
 /**
@@ -82,4 +124,11 @@ function validateLogin(body) {
   return { value: { email, password }, fields };
 }
 
-module.exports = { MESSAGES, normalizeEmail, validateLogin, validateRegistration };
+module.exports = {
+  MESSAGES,
+  normalizeEmail,
+  validateLogin,
+  validateRecover,
+  validateRegistration,
+  validateReset,
+};

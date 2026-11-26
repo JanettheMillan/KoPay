@@ -108,6 +108,21 @@ function toGrant(row) {
 
 const GRANT_COLUMNS = 'id, user_id, accountant_id, granted_at, revoked_at';
 
+/** Fila de `password_resets` con los nombres que usan los servicios. */
+function toReset(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    codeHash: row.code_hash,
+    createdAt: row.created_at.toISOString(),
+    expiresAt: row.expires_at.toISOString(),
+    attempts: row.attempts,
+    usedAt: row.used_at ? row.used_at.toISOString() : null,
+  };
+}
+
+const RESET_COLUMNS = 'id, user_id, code_hash, created_at, expires_at, attempts, used_at';
+
 function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
   if (!databaseUrl) throw new Error('Falta DATABASE_URL para PostgreSQL.');
   const pool = new PoolClass({ connectionString: databaseUrl, ...POOL_OPTIONS });
@@ -280,6 +295,90 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
       } catch (err) {
         if (err.code === INVALID_TEXT) return false;
         throw err;
+      }
+    },
+
+    /**
+     * Guarda el código de recuperación de `userId` (S4-19) y borra los
+     * anteriores en la misma sentencia. Solo recibe el hash del código.
+     */
+    async createPasswordReset({ userId, codeHash, expiresAt }) {
+      const { rows } = await query(
+        `WITH previous AS (DELETE FROM password_resets WHERE user_id = $1)
+         INSERT INTO password_resets (user_id, code_hash, expires_at)
+         VALUES ($1, $2, $3)
+         RETURNING ${RESET_COLUMNS}`,
+        [userId, codeHash, expiresAt],
+      );
+      return toReset(rows[0]);
+    },
+
+    /** Código de recuperación más reciente de `userId`, o `null`. */
+    async findLatestPasswordReset(userId) {
+      const { rows } = await query(
+        `SELECT ${RESET_COLUMNS} FROM password_resets
+         WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [userId],
+      );
+      return rows.length === 0 ? null : toReset(rows[0]);
+    },
+
+    /**
+     * Suma un intento fallido al código `resetId` si sigue sin usar y
+     * tiene menos de 5. Devuelve los intentos, o `null` si no lo sumó.
+     */
+    async recordPasswordResetFailure(resetId) {
+      const { rows } = await query(
+        `UPDATE password_resets SET attempts = attempts + 1
+         WHERE id = $1 AND used_at IS NULL AND attempts < 5
+         RETURNING attempts`,
+        [resetId],
+      );
+      return rows.length === 0 ? null : rows[0].attempts;
+    },
+
+    /**
+     * Cambia la contraseña con el código `resetId` (S4-19) en una sola
+     * transacción: marca el código usado, guarda `passwordHash` y llena
+     * `revoked_at` en todas las sesiones abiertas de `userId`. Devuelve
+     * `false`, sin cambiar nada, si el código ya se usó.
+     */
+    async completePasswordReset({ resetId, userId, passwordHash }) {
+      let client;
+      try {
+        client = await pool.connect();
+      } catch (err) {
+        if (isUnavailable(err)) throw unavailable();
+        throw err;
+      }
+      try {
+        await client.query('BEGIN');
+        const used = await client.query(
+          `UPDATE password_resets SET used_at = now()
+           WHERE id = $1 AND user_id = $2 AND used_at IS NULL
+           RETURNING id`,
+          [resetId, userId],
+        );
+        if (used.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return false;
+        }
+        await client.query(
+          'UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2',
+          [passwordHash, userId],
+        );
+        await client.query(
+          'UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+          [userId],
+        );
+        await client.query('COMMIT');
+        return true;
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        if (isUnavailable(err)) throw unavailable();
+        throw err;
+      } finally {
+        client.release();
       }
     },
 

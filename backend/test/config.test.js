@@ -1,7 +1,8 @@
 // S3-02 · Ambientes y secretos de la API (HU-30, HU-35).
 //
 // El plan de pruebas no tiene casos para la configuración de la API;
-// estos son casos nuevos ENV-01 a ENV-12, anotados en el PR.
+// estos son casos nuevos ENV-01 a ENV-12, anotados en el PR, y ENV-13 a
+// ENV-16 del correo de recuperación (S4-19).
 
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -10,6 +11,7 @@ const path = require('node:path');
 
 const {
   EXAMPLE_SECRET,
+  SMTP_VARIABLES,
   describeConfig,
   loadConfig,
   loadEnvFile,
@@ -21,6 +23,12 @@ const PROD = {
   DATABASE_URL: 'postgres://usuario:clave@db.example.com:5432/kopay',
   JWT_SECRET: SECRET,
   CORS_ORIGIN: 'https://kopay.example.com',
+  // Correo de recuperación (S4-19).
+  SMTP_HOST: 'smtp.example.com',
+  SMTP_PORT: '587',
+  SMTP_USER: 'kopay@example.com',
+  SMTP_PASS: 'clave-smtp-secreta',
+  MAIL_FROM: 'KoPay <kopay@example.com>',
 };
 
 describe('Ambientes', () => {
@@ -154,5 +162,50 @@ describe('Archivo .env', () => {
     expect(ignored('.env.production')).toBe(true);
     expect(ignored('.env.example')).toBe(false);
     expect(fs.existsSync(path.join(backend, '.env.example'))).toBe(true);
+  });
+});
+
+describe('Correo de recuperación (S4-19)', () => {
+  test('ENV-13 · HU-32 · en development y test el correo usa jsonTransport sin variables SMTP', () => {
+    for (const NODE_ENV of ['development', 'test']) {
+      expect(loadConfig({ NODE_ENV }).mail).toEqual({
+        transport: 'json',
+        from: 'KoPay <no-reply@kopay.local>',
+      });
+    }
+  });
+
+  test('ENV-14 · HU-32 · en producción falta cada variable SMTP y no arranca', () => {
+    for (const variable of SMTP_VARIABLES) {
+      const env = { ...PROD };
+      delete env[variable];
+      expect(() => loadConfig(env)).toThrow(`falta ${variable}`);
+    }
+    expect(() => loadConfig({ ...PROD, SMTP_PASS: '   ' })).toThrow('falta SMTP_PASS');
+  });
+
+  test('ENV-15 · HU-32 · un SMTP_PORT que no es número de puerto se rechaza', () => {
+    for (const port of ['abc', '0', '70000', '58.7']) {
+      expect(() => loadConfig({ ...PROD, SMTP_PORT: port })).toThrow(
+        'SMTP_PORT debe ser un número de 1 a 65535',
+      );
+    }
+  });
+
+  test('ENV-16 · HU-32 · producción lee SMTP y el resumen de consola no muestra sus valores', () => {
+    const config = loadConfig(PROD);
+
+    expect(config.mail).toEqual({
+      transport: 'smtp',
+      host: 'smtp.example.com',
+      port: 587,
+      user: 'kopay@example.com',
+      pass: 'clave-smtp-secreta',
+      from: 'KoPay <kopay@example.com>',
+    });
+    const resumen = JSON.stringify(describeConfig(config));
+    expect(resumen).not.toContain('clave-smtp-secreta');
+    expect(resumen).not.toContain('kopay@example.com');
+    expect(resumen).not.toContain('smtp.example.com');
   });
 });

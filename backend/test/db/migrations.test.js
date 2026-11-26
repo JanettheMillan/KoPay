@@ -1,8 +1,9 @@
 'use strict';
 
 // S3-05 · Migraciones de usuarios, roles y sesiones contra PostgreSQL
-// real (HU-30 a HU-34), y permisos de contador (S3-06, HU-37 a HU-42).
-// Casos DB-01 a DB-03 de docs/base-de-datos.md.
+// real (HU-30 a HU-34), permisos de contador (S3-06, HU-37 a HU-42) y
+// códigos de recuperación (S4-19, HU-32). Casos DB-01 a DB-03 de
+// docs/base-de-datos.md, y DB-06 de S4-19.
 //
 //   DATABASE_URL=postgres://USUARIO:CLAVE@localhost:5432/kopay_test npm run test:db
 //
@@ -61,6 +62,7 @@ describe('DB-01 · Migración desde cero', () => {
     expect(done).toEqual([
       '001_users_roles_sessions.sql',
       '002_accountant_access.sql',
+      '003_password_resets.sql',
     ]);
 
     const { rows } = await client.query(
@@ -69,6 +71,7 @@ describe('DB-01 · Migración desde cero', () => {
     );
     expect(rows.map((r) => r.table_name)).toEqual([
       'accountant_access',
+      'password_resets',
       'schema_migrations',
       'sessions',
       'users',
@@ -80,7 +83,7 @@ describe('DB-01 · Migración desde cero', () => {
     const { rows } = await client.query(
       'SELECT version FROM schema_migrations ORDER BY version',
     );
-    expect(rows).toEqual([{ version: '001' }, { version: '002' }]);
+    expect(rows).toEqual([{ version: '001' }, { version: '002' }, { version: '003' }]);
   });
 });
 
@@ -332,6 +335,85 @@ describe('DB-03 · Conceder y revocar acceso a un contador', () => {
     await client.query('DELETE FROM users WHERE id = $1', [ana.id]);
     await client.query('DELETE FROM users WHERE id = $1', [otro.id]);
     const { rows } = await client.query('SELECT count(*)::int AS n FROM accountant_access');
+    expect(rows[0].n).toBe(0);
+  });
+});
+
+describe('DB-06 · Códigos de recuperación (S4-19)', () => {
+  const { createPgStore } = require('../../src/data/pg-store');
+  const CODE_HASH = 'c'.repeat(64);
+  let store;
+  let user;
+
+  beforeAll(() => {
+    store = createPgStore({ databaseUrl: config.databaseUrl });
+  });
+  afterAll(() => store.close());
+  beforeEach(async () => {
+    await client.query('TRUNCATE users CASCADE');
+    user = await insertUser('ana@mail.com');
+  });
+
+  const enUnRato = () => new Date(Date.now() + 15 * 60_000).toISOString();
+
+  test('DB-06 · HU-32 · el hash debe tener 64 caracteres y los intentos van de 0 a 5', async () => {
+    const insert = (hash, attempts = 0) =>
+      errorCode(
+        `INSERT INTO password_resets (user_id, code_hash, expires_at, attempts)
+         VALUES ($1, $2, now() + interval '15 minutes', $3)`,
+        [user.id, hash, attempts],
+      );
+
+    expect(await insert('048213')).toBe('23514');
+    expect(await insert(CODE_HASH, 6)).toBe('23514');
+    expect(await insert(CODE_HASH, 5)).toBeNull();
+  });
+
+  test('DB-06 · HU-32 · un código nuevo borra el anterior y los intentos llegan hasta 5', async () => {
+    await store.createPasswordReset({ userId: user.id, codeHash: 'a'.repeat(64), expiresAt: enUnRato() });
+    const nuevo = await store.createPasswordReset({ userId: user.id, codeHash: CODE_HASH, expiresAt: enUnRato() });
+
+    const { rows } = await client.query('SELECT count(*)::int AS n FROM password_resets');
+    expect(rows[0].n).toBe(1);
+    expect((await store.findLatestPasswordReset(user.id)).id).toBe(nuevo.id);
+
+    const intentos = [];
+    for (let i = 0; i < 6; i += 1) intentos.push(await store.recordPasswordResetFailure(nuevo.id));
+    expect(intentos).toEqual([1, 2, 3, 4, 5, null]);
+  });
+
+  test('DB-06 · HU-32, HU-34 · completar cambia el hash, cierra las sesiones y no se repite', async () => {
+    const reset = await store.createPasswordReset({ userId: user.id, codeHash: CODE_HASH, expiresAt: enUnRato() });
+    await store.createSession({ userId: user.id, tokenHash: 't'.repeat(64), expiresAt: enUnRato() });
+
+    const primero = await store.completePasswordReset({
+      resetId: reset.id,
+      userId: user.id,
+      passwordHash: 'scrypt$16384$8$1$bnVldmE=$bnVldmFjbGF2ZQ==',
+    });
+    const segundo = await store.completePasswordReset({
+      resetId: reset.id,
+      userId: user.id,
+      passwordHash: 'scrypt$16384$8$1$b3RyYQ==$b3RyYWNsYXZl',
+    });
+
+    expect(primero).toBe(true);
+    expect(segundo).toBe(false);
+    expect((await store.findUserById(user.id)).passwordHash).toMatch(/bnVldmFjbGF2ZQ/);
+    expect((await store.findLatestPasswordReset(user.id)).usedAt).not.toBeNull();
+    const { rows } = await client.query(
+      'SELECT count(*)::int AS abiertas FROM sessions WHERE user_id = $1 AND revoked_at IS NULL',
+      [user.id],
+    );
+    expect(rows[0].abiertas).toBe(0);
+  });
+
+  test('DB-06 · HU-32 · borrar la cuenta borra sus códigos', async () => {
+    await store.createPasswordReset({ userId: user.id, codeHash: CODE_HASH, expiresAt: enUnRato() });
+
+    await client.query('DELETE FROM users WHERE id = $1', [user.id]);
+
+    const { rows } = await client.query('SELECT count(*)::int AS n FROM password_resets');
     expect(rows[0].n).toBe(0);
   });
 });
