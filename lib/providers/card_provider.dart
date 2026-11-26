@@ -101,6 +101,20 @@ class CardProvider extends ChangeNotifier {
     return payment;
   }
 
+  /// Anula el pago [paymentId] de la tarjeta (D-10).
+  ///
+  /// Borra el movimiento de tipo `payment` y devuelve su importe al saldo
+  /// usado en una sola transacción, así que baja el crédito disponible.
+  /// Después recarga las tarjetas. El pago también es un movimiento: quien
+  /// lo anula debe recargar `MovementProvider`.
+  ///
+  /// Lanza [ArgumentError] si el pago no existe o ya no está ligado a su
+  /// tarjeta. En ese caso no cambia nada.
+  Future<void> cancelPayment(int paymentId) async {
+    await _db.cancelPayment(paymentId);
+    await _reload();
+  }
+
   /// Pagos registrados a la tarjeta [cardId], del más reciente al más
   /// antiguo.
   Future<List<Movement>> paymentsOf(int cardId) => _db.getCardPayments(cardId);

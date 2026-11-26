@@ -118,20 +118,22 @@ La app tiene tres pestañas abajo: **Inicio**, **Movimientos** y **Ajustes**, m�
 
 - **Inicio** muestra el balance del mes elegido (flechas junto al mes), los ingresos, los gastos y los movimientos del mes, además de las secciones **Tarjetas** y **Deudas**.
 - **Movimientos** muestra gastos, entradas, pagos e ingresos, del más reciente al más antiguo.
-- Toca una fila para **editarla**. En la hoja de edición, **Eliminar** pide confirmación: Cancelar conserva el registro y Eliminar lo borra y recalcula el resumen (#185). Los pagos de tarjeta o deuda no se borran desde aquí.
+- Toca una fila para **editarla**. En la hoja de edición, **Eliminar** pide confirmación: Cancelar conserva el registro y Eliminar lo borra y recalcula el resumen (#185). Los pagos de tarjeta o deuda no se borran desde aquí: se **anulan** en el detalle de su tarjeta o deuda (D-10).
 
 ### Tarjetas (HU-13 a HU-17)
 
 1. En Inicio, sección **Tarjetas**, toca **Agregar tarjeta**: nombre, banco, límite, saldo usado, día de corte, día de pago y pago mínimo.
 2. Toca la tarjeta para ver su **crédito disponible** (límite − usado), la barra de uso y sus datos. Arriba están **Editar** y **Eliminar**.
 3. **Registrar pago:** captura el monto (o toca **Pagar todo**), la fecha y la nota. No se acepta un monto cero, no numérico o mayor que el saldo usado. El pago baja el saldo usado, sube el disponible y aparece en Movimientos.
-4. Al eliminar la tarjeta, sus pagos **se conservan** en Movimientos.
+4. **Anular pago:** en la lista **Pagos** del detalle, toca el botón de anular de un pago. Pide confirmación ("¿Anular este pago? El saldo vuelve a como estaba"). Al confirmar, el pago se borra y su importe vuelve al saldo usado; Cancelar no cambia nada (D-10).
+5. Al eliminar la tarjeta, sus pagos **se conservan** en Movimientos.
 
 ### Deudas (HU-19 a HU-22)
 
 1. Sección **Deudas**, **Agregar deuda**: nombre, mensualidad, saldo restante y próximo vencimiento.
 2. La lista va por vencimiento y muestra **Pendiente**, **Vencida** (en rojo) o **Pagada** (en verde).
 3. **Registrar pago** funciona igual que en tarjetas. Un pago por el saldo completo deja la deuda en **Pagada** y desactiva el botón.
+4. **Anular pago** también funciona igual: devuelve el importe al saldo restante y, si vuelve a haber saldo, la deuda pasa a **Pendiente** (D-10).
 
 ### Ajustes (HU-10 a HU-12, HU-24 a HU-28)
 
@@ -162,7 +164,7 @@ Hoy es una **maqueta** (S2-19): Clientes autorizados → Resumen del mes → His
 - **Estado de deuda:** saldo cero = **Pagada**; mayor que cero = **Pendiente**; pendiente con vencimiento anterior a hoy = **Vencida**.
 - **Borrar tarjeta o deuda:** sus pagos se conservan en Movimientos y solo se desligan.
 - **Resumen del mes (HU-09):** saldo = ingresos − gastos − pagos. Los pagos de tarjeta o deuda aparecen en su propia tarjeta **Pagos** y no se cuentan como gastos (#193).
-- **Pendiente anotado para el cierre del Sprint 2 (#18):** editar o borrar un pago no devuelve el saldo a su tarjeta o deuda. Por eso hoy un pago no ofrece Eliminar.
+- **Anular un pago (D-10):** se hace solo desde la lista **Pagos** del detalle de su tarjeta o deuda. Pide confirmación, borra el movimiento `type = payment` y devuelve su importe al saldo en una sola transacción: suma al saldo usado de la tarjeta o al saldo restante de la deuda, que vuelve a **Pendiente** si queda saldo. Si algo falla a la mitad, SQLite revierte y no queda el pago borrado con el saldo sin regresar. Un pago desligado (porque se borró su tarjeta o deuda) no se puede anular desde aquí.
 
 ## 6. Instalación y ejecución local
 

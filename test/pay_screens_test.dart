@@ -115,6 +115,35 @@ class _MemoryDb extends DatabaseHelper {
   @override
   Future<List<Movement>> getDebtPayments(int debtId) async =>
       movements.where((m) => m.debtId == debtId).toList().reversed.toList();
+
+  @override
+  Future<void> cancelPayment(int movementId) async {
+    final index = movements.indexWhere((m) => m.id == movementId);
+    if (index < 0) {
+      throw ArgumentError.value(movementId, 'movementId', 'El pago no existe');
+    }
+    final payment = movements[index];
+    if (payment.cardId != null) {
+      final i = cards.indexWhere((c) => c.id == payment.cardId);
+      final card = cards[i];
+      cards[i] = card.copyWith(
+        usedBalance: card.usedBalance + payment.absAmount,
+      );
+    } else if (payment.debtId != null) {
+      final i = debts.indexWhere((d) => d.id == payment.debtId);
+      final debt = debts[i];
+      final rest = debt.remainingBalance + payment.absAmount;
+      debts[i] = debt.copyWith(
+        remainingBalance: rest,
+        status: (rest * 100).round() == 0
+            ? DebtStatus.paid
+            : DebtStatus.pending,
+      );
+    } else {
+      throw ArgumentError.value(movementId, 'movementId', 'Pago desligado');
+    }
+    movements.removeAt(index);
+  }
 }
 
 class _FixedSettings extends SettingsProvider {
@@ -382,6 +411,92 @@ void main() {
       await tapKey(tester, 'debt-pay');
       expect(find.text('Pay debt'), findsOneWidget);
       expect(find.text('Pay all'), findsOneWidget);
+    });
+
+    testWidgets('UI-D10-01 · HU-16 · anular un pago de tarjeta devuelve el '
+        'saldo usado y lo quita de Movimientos', (tester) async {
+      await db.insertCardPayment(
+        cardId: 1,
+        amount: 50,
+        date: DateTime(2026, 11, 20),
+      );
+      await cards.load();
+      await movements.load();
+      await open(tester, const CardDetailScreen(cardId: 1));
+      expect(textOf(tester, 'card-used-value'), FormatUtils.money(150));
+
+      await tapKey(tester, 'payment-cancel-0');
+      expect(find.text(AppStrings.es.cancelPaymentTitle), findsOneWidget);
+      expect(find.text(AppStrings.es.cancelPaymentBody), findsOneWidget);
+      await tapKey(tester, 'cancel-payment-confirm');
+
+      expect(textOf(tester, 'card-used-value'), FormatUtils.money(200));
+      expect(textOf(tester, 'card-available'), FormatUtils.money(800));
+      expect(find.byKey(const Key('payment-row-0')), findsNothing);
+      expect(find.byKey(const Key('payments-empty')), findsOneWidget);
+      expect(movements.movements, isEmpty);
+      expect(find.text(AppStrings.es.paymentCanceled), findsOneWidget);
+    });
+
+    testWidgets('UI-D10-02 · HU-16 · cancelar la confirmación no cambia el '
+        'pago ni el saldo', (tester) async {
+      await db.insertCardPayment(
+        cardId: 1,
+        amount: 50,
+        date: DateTime(2026, 11, 20),
+      );
+      await cards.load();
+      await movements.load();
+      await open(tester, const CardDetailScreen(cardId: 1));
+
+      await tapKey(tester, 'payment-cancel-0');
+      await tapKey(tester, 'cancel-payment-dismiss');
+
+      expect(textOf(tester, 'card-used-value'), FormatUtils.money(150));
+      expect(find.byKey(const Key('payment-row-0')), findsOneWidget);
+      expect(movements.movements.single.amount, -50);
+      expect(db.cards.single.usedBalance, 150);
+    });
+
+    testWidgets('UI-D10-03 · HU-20 · HU-21 · anular el pago que liquidó la '
+        'deuda la deja pendiente y devuelve el saldo', (tester) async {
+      await db.insertDebtPayment(
+        debtId: 2,
+        amount: 300,
+        date: DateTime(2026, 11, 20),
+      );
+      await debts.load();
+      await movements.load();
+      await open(tester, const DebtDetailScreen(debtId: 2));
+      expect(textOf(tester, 'debt-status-value'), AppStrings.es.debtPaid);
+
+      await tapKey(tester, 'payment-cancel-0');
+      await tapKey(tester, 'cancel-payment-confirm');
+
+      expect(textOf(tester, 'debt-remaining-value'), FormatUtils.money(300));
+      expect(textOf(tester, 'debt-status-value'), AppStrings.es.debtPending);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('debt-pay')))
+            .onPressed,
+        isNotNull,
+      );
+      expect(movements.movements, isEmpty);
+    });
+
+    testWidgets('UI-D10-04 · HU-25 · la confirmación de anular cambia a '
+        'inglés', (tester) async {
+      await db.insertCardPayment(
+        cardId: 1,
+        amount: 50,
+        date: DateTime(2026, 11, 20),
+      );
+      await cards.load();
+      await open(tester, const CardDetailScreen(cardId: 1), language: 'en');
+
+      await tapKey(tester, 'payment-cancel-0');
+      expect(find.text('Void this payment?'), findsOneWidget);
+      expect(find.text('Void payment'), findsOneWidget);
     });
   });
 }

@@ -653,6 +653,116 @@ class DatabaseHelper {
     });
   }
 
+  /// Anula el pago [movementId] (D-10, HU-16, HU-06): borra el movimiento
+  /// de tipo `payment` y devuelve su importe al saldo de su tarjeta o de
+  /// su deuda, todo en una sola transacción. Si algo falla a la mitad,
+  /// SQLite revierte y el pago y el saldo quedan como estaban.
+  ///
+  /// En una tarjeta suma el importe al saldo usado; en una deuda lo suma
+  /// al saldo restante y, si vuelve a ser mayor que cero, la deuda pasa a
+  /// pendiente (HU-21). Es la operación inversa de [insertCardPayment] e
+  /// [insertDebtPayment].
+  ///
+  /// Lanza [ArgumentError] si el movimiento no existe, no es un pago o ya
+  /// no está ligado a su tarjeta o deuda (por ejemplo, porque se borró).
+  /// En esos casos no cambia nada.
+  Future<void> cancelPayment(int movementId) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        movementsTable,
+        where: 'id = ?',
+        whereArgs: [movementId],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        throw ArgumentError.value(
+          movementId,
+          'movementId',
+          'El pago no existe',
+        );
+      }
+      final payment = Movement.fromMap(rows.first);
+      if (!payment.isPayment) {
+        throw ArgumentError.value(
+          movementId,
+          'movementId',
+          'El movimiento no es un pago',
+        );
+      }
+      // En centavos enteros, igual que al registrar el pago (D-06).
+      final amount = _cents(payment.absAmount);
+
+      if (payment.cardId != null) {
+        final cards = await txn.query(
+          cardsTable,
+          where: 'id = ?',
+          whereArgs: [payment.cardId],
+          limit: 1,
+        );
+        if (cards.isEmpty) {
+          throw ArgumentError.value(
+            movementId,
+            'movementId',
+            'La tarjeta del pago no existe',
+          );
+        }
+        final card = CardModel.fromMap(cards.first);
+        final used = _cents(card.usedBalance) + amount;
+        await txn.update(
+          cardsTable,
+          {'used_balance': used / 100},
+          where: 'id = ?',
+          whereArgs: [payment.cardId],
+        );
+      } else if (payment.debtId != null) {
+        final debts = await txn.query(
+          debtsTable,
+          where: 'id = ?',
+          whereArgs: [payment.debtId],
+          limit: 1,
+        );
+        if (debts.isEmpty) {
+          throw ArgumentError.value(
+            movementId,
+            'movementId',
+            'La deuda del pago no existe',
+          );
+        }
+        final debt = DebtModel.fromMap(debts.first);
+        final remaining = _cents(debt.remainingBalance) + amount;
+        await txn.update(
+          debtsTable,
+          {
+            'remaining_balance': remaining / 100,
+            'status': remaining == 0
+                ? DebtStatus.paid.name
+                : DebtStatus.pending.name,
+          },
+          where: 'id = ?',
+          whereArgs: [payment.debtId],
+        );
+      } else {
+        throw ArgumentError.value(
+          movementId,
+          'movementId',
+          'El pago no está ligado a una tarjeta o deuda',
+        );
+      }
+
+      await txn.delete(
+        movementRemoteTable,
+        where: 'movement_id = ?',
+        whereArgs: [movementId],
+      );
+      await txn.delete(
+        movementsTable,
+        where: 'id = ?',
+        whereArgs: [movementId],
+      );
+    });
+  }
+
   /// Pagos asociados a la tarjeta [cardId], del más reciente al más
   /// antiguo.
   Future<List<Movement>> getCardPayments(int cardId) =>

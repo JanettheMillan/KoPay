@@ -3,6 +3,8 @@
 //
 // UT-02 es un caso del plan (docs/plan-de-pruebas.md). Los casos PAG-xx
 // son pruebas nuevas de la persistencia de pagos que no están en el plan.
+// Los casos D10-xx corresponden a la corrección de D-10 (#207): anular un
+// pago y devolver el saldo.
 
 import 'dart:io';
 
@@ -323,6 +325,112 @@ void main() {
         throwsArgumentError,
       );
       expect((await helper.getCard(otra.id!))!.usedBalance, 10);
+    });
+    test('D10-01 · HU-16 · Anular un pago de tarjeta devuelve el saldo usado y '
+        'borra el pago', () async {
+      final tarjeta = await helper.insertCard(oro);
+      final pago = await helper.insertCardPayment(
+        cardId: tarjeta.id!,
+        amount: 120,
+        date: hoy,
+      );
+      expect((await helper.getCard(tarjeta.id!))!.usedBalance, 80);
+
+      await helper.cancelPayment(pago.id!);
+
+      final leida = (await helper.getCard(tarjeta.id!))!;
+      expect(leida.usedBalance, 200);
+      expect(leida.available, 800);
+      expect(await helper.getCardPayments(tarjeta.id!), isEmpty);
+      expect(await helper.getMovement(pago.id!), isNull);
+      expect(await helper.getMovements(), isEmpty);
+      // Un pago ya anulado no se puede volver a anular.
+      await expectLater(helper.cancelPayment(pago.id!), throwsArgumentError);
+      expect((await helper.getCard(tarjeta.id!))!.usedBalance, 200);
+    });
+
+    test('D10-02 · HU-20 · HU-21 · Anular un pago de deuda devuelve el saldo y '
+        'la deuda vuelve a pendiente', () async {
+      final deuda = await helper.insertDebt(auto);
+      final pago = await helper.insertDebtPayment(
+        debtId: deuda.id!,
+        amount: 300,
+        date: hoy,
+      );
+      expect((await helper.getDebt(deuda.id!))!.isPaid, isTrue);
+
+      await helper.cancelPayment(pago.id!);
+
+      final leida = (await helper.getDebt(deuda.id!))!;
+      expect(leida.remainingBalance, 300);
+      expect(leida.status, DebtStatus.pending);
+      expect(await helper.getDebtPayments(deuda.id!), isEmpty);
+      expect(await helper.getMovement(pago.id!), isNull);
+    });
+
+    test('D10-03 · HU-16 · Anular algo que no es un pago de su tarjeta o deuda '
+        'no cambia nada', () async {
+      final tarjeta = await helper.insertCard(oro);
+      final deuda = await helper.insertDebt(auto);
+      final gasto = await helper.insertMovement(
+        Movement(
+          amount: -30,
+          description: 'Café',
+          category: 'Comida',
+          date: hoy,
+        ),
+      );
+      final pago = await helper.insertCardPayment(
+        cardId: tarjeta.id!,
+        amount: 50,
+        date: hoy,
+      );
+
+      await expectLater(helper.cancelPayment(999), throwsArgumentError);
+      await expectLater(helper.cancelPayment(gasto.id!), throwsArgumentError);
+      // Al borrar la tarjeta el pago se desliga y ya no se puede anular.
+      await helper.deleteCard(tarjeta.id!);
+      await expectLater(helper.cancelPayment(pago.id!), throwsArgumentError);
+
+      expect(await helper.getMovement(gasto.id!), gasto);
+      expect(await helper.getMovement(pago.id!), isNotNull);
+      expect((await helper.getDebt(deuda.id!))!.remainingBalance, 300);
+    });
+
+    test('D10-04 · HU-16 · Si borrar el pago falla, la transacción no devuelve '
+        'el saldo ni borra el pago', () async {
+      final tarjeta = await helper.insertCard(oro);
+      final pago = await helper.insertCardPayment(
+        cardId: tarjeta.id!,
+        amount: 120,
+        date: hoy,
+      );
+      final db = await helper.database;
+      await db.execute(
+        'CREATE TRIGGER falla_borrar_pago BEFORE DELETE ON movements '
+        "BEGIN SELECT RAISE(ABORT, 'falla'); END",
+      );
+
+      await expectLater(helper.cancelPayment(pago.id!), throwsA(anything));
+
+      expect((await helper.getCard(tarjeta.id!))!.usedBalance, 80);
+      expect(await helper.getCardPayments(tarjeta.id!), [pago]);
+      expect(await helper.getMovement(pago.id!), pago);
+    });
+
+    test('D10-05 · D-06 · HU-16 · Anular un pago con centavos deja el saldo '
+        'exacto', () async {
+      final tarjeta = await helper.insertCard(oro.copyWith(usedBalance: 0.3));
+      final pago = await helper.insertCardPayment(
+        cardId: tarjeta.id!,
+        amount: 0.1,
+        date: hoy,
+      );
+      expect((await helper.getCard(tarjeta.id!))!.usedBalance, 0.2);
+
+      await helper.cancelPayment(pago.id!);
+
+      expect((await helper.getCard(tarjeta.id!))!.usedBalance, 0.3);
     });
   });
 }

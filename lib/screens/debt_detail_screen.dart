@@ -205,6 +205,11 @@ class _DebtDetailBody extends StatelessWidget {
         PaymentsList(
           load: () => context.read<DebtProvider>().paymentsOf(debt.id!),
           refreshKey: debt.remainingBalance,
+          onCancel: (payment) => cancelPayment(
+            context,
+            payment: payment,
+            onCancel: (id) => context.read<DebtProvider>().cancelPayment(id),
+          ),
         ),
       ],
     );

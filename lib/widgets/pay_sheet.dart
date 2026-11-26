@@ -220,14 +220,72 @@ class _PaySheetState extends State<PaySheet> {
   }
 }
 
+/// Pide confirmación para anular un pago (D-10). Devuelve `true` si se
+/// confirma; cancelar no cambia nada.
+Future<bool> confirmCancelPayment(BuildContext context) async {
+  final s = AppStrings.read(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: Text(s.cancelPaymentTitle),
+      content: Text(s.cancelPaymentBody),
+      actions: [
+        TextButton(
+          key: const Key('cancel-payment-dismiss'),
+          onPressed: () => Navigator.of(dialog).pop(false),
+          child: Text(s.cancel),
+        ),
+        TextButton(
+          key: const Key('cancel-payment-confirm'),
+          onPressed: () => Navigator.of(dialog).pop(true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.red),
+          child: Text(s.cancelPayment),
+        ),
+      ],
+    ),
+  );
+  return confirmed == true;
+}
+
+/// Pide confirmación y anula el pago [payment] (D-10, HU-16, HU-06).
+///
+/// [onCancel] borra el pago y recarga su tarjeta o deuda; después se
+/// recarga [MovementProvider] para que el pago desaparezca de Movimientos
+/// e Inicio. Cancelar la confirmación no cambia nada.
+Future<void> cancelPayment(
+  BuildContext context, {
+  required Movement payment,
+  required Future<void> Function(int paymentId) onCancel,
+}) async {
+  final movements = context.read<MovementProvider?>();
+  final messenger = ScaffoldMessenger.of(context);
+  final s = AppStrings.read(context);
+  if (!await confirmCancelPayment(context)) return;
+  try {
+    await onCancel(payment.id!);
+    await movements?.load();
+    messenger.showSnackBar(SnackBar(content: Text(s.paymentCanceled)));
+  } catch (_) {
+    messenger.showSnackBar(SnackBar(content: Text(s.cancelPaymentError)));
+  }
+}
+
 /// Pagos registrados a una tarjeta o deuda, del más reciente al más
 /// antiguo. [refreshKey] cambia cuando cambia el saldo, para volver a
-/// leerlos después de un pago.
+/// leerlos después de un pago o de anularlo.
+///
+/// Con [onCancel] cada pago muestra **Anular pago** (D-10).
 class PaymentsList extends StatelessWidget {
   final Future<List<Movement>> Function() load;
   final Object refreshKey;
+  final Future<void> Function(Movement payment)? onCancel;
 
-  const PaymentsList({super.key, required this.load, required this.refreshKey});
+  const PaymentsList({
+    super.key,
+    required this.load,
+    required this.refreshKey,
+    this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -290,6 +348,18 @@ class PaymentsList extends StatelessWidget {
                       FormatUtils.money(payments[i].absAmount),
                       style: TextStyle(fontSize: 14, color: AppColors.text),
                     ),
+                    if (onCancel != null)
+                      IconButton(
+                        key: Key('payment-cancel-$i'),
+                        tooltip: s.cancelPayment,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.undo_rounded,
+                          size: 18,
+                          color: AppColors.text3,
+                        ),
+                        onPressed: () => onCancel!(payments[i]),
+                      ),
                   ],
                 ),
               ),

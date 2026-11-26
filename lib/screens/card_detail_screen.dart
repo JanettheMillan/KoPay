@@ -213,6 +213,11 @@ class _CardDetailBody extends StatelessWidget {
         PaymentsList(
           load: () => context.read<CardProvider>().paymentsOf(card.id!),
           refreshKey: card.usedBalance,
+          onCancel: (payment) => cancelPayment(
+            context,
+            payment: payment,
+            onCancel: (id) => context.read<CardProvider>().cancelPayment(id),
+          ),
         ),
       ],
     );
