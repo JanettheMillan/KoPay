@@ -7,6 +7,7 @@ import '../providers/movement_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
+import '../utils/month_summary.dart';
 import '../widgets/cards_section.dart';
 import '../widgets/category_picker_sheet.dart';
 import '../widgets/debts_section.dart';
@@ -53,11 +54,13 @@ class _HomeScreenState extends State<HomeScreen> {
       movements.forMonth(month),
       incomes.forMonth(month),
     );
-    // Ingresos del mes más las entradas (movimientos positivos), igual
-    // que el historial; los gastos van en positivo.
-    final income =
-        incomes.totalForMonth(month) + movements.entriesForMonth(month);
-    final expenses = movements.expensesForMonth(month);
+    // HU-09: ingresos − gastos − pagos de tarjeta o deuda del mes.
+    // Los pagos se guardan aparte para no contarlos como gasto (UT-38).
+    final summary = MonthSummary.of(
+      movements.movements,
+      incomes.incomes,
+      month,
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppColors.systemOverlay,
@@ -73,8 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const _Header(),
               _Hero(
-                income: income,
-                expenses: expenses,
+                income: summary.income,
+                expenses: summary.expenses,
+                cardPayments: summary.cardPayments,
                 selectedMonth: _selectedMonth,
                 onMonthChange: _changeMonth,
               ),
@@ -129,19 +133,21 @@ class _Header extends StatelessWidget {
 class _Hero extends StatelessWidget {
   final double income;
   final double expenses;
+  final double cardPayments;
   final DateTime selectedMonth;
   final void Function(int) onMonthChange;
 
   const _Hero({
     required this.income,
     required this.expenses,
+    required this.cardPayments,
     required this.selectedMonth,
     required this.onMonthChange,
   });
 
   @override
   Widget build(BuildContext context) {
-    final balance = income - expenses;
+    final balance = income - expenses - cardPayments;
     final isPositive = balance >= 0;
     final color = isPositive ? AppColors.green : AppColors.red;
     final s = AppStrings.of(context);
@@ -253,6 +259,20 @@ class _Hero extends StatelessWidget {
                   valueColor: AppColors.text,
                 ),
               ),
+              // Los pagos van en la misma fila para que el saldo de
+              // HU-09 se entienda sin empujar el resto de Inicio hacia
+              // el botón +.
+              if (cardPayments > 0) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _BalanceStat(
+                    key: const Key('home-payments'),
+                    label: s.payments,
+                    value: FormatUtils.moneyCompact(cardPayments),
+                    valueColor: AppColors.text,
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -447,6 +467,7 @@ class _BalanceStat extends StatelessWidget {
   final Color valueColor;
 
   const _BalanceStat({
+    super.key,
     required this.label,
     required this.value,
     required this.valueColor,

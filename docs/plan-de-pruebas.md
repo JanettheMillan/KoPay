@@ -440,14 +440,16 @@ Se ordenan primero porque representan la mayor parte del plan. Los identificador
 
 > **Resultado esperado:** El ingreso se suma una sola vez.
 
-#### UT-44 · Movimiento positivo no clasificado
+#### UT-44 · Entrada positiva no clasificada
 
-**HU-09** · Unitaria · Prioridad media
+**HU-03** · Unitaria · Prioridad media
 
-- **Preparación:** Movimiento positivo cuyo tipo no es income.
+- **Preparación:** Movimiento positivo de 75 con categoría Otros (no es un pago).
 - **Acción:** Calcular MonthSummary.of.
 
-> **Resultado esperado:** No se suma como ingreso ni gasto.
+> **Resultado esperado:** Se suma una sola vez como ingreso; no se suma como gasto.
+
+Actualizado en #14: el modelo real no tiene un tipo `income`. HU-03 exige que una entrada positiva se incluya una sola vez en el resumen.
 
 #### UT-45 · Movimiento de monto cero
 

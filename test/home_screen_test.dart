@@ -163,6 +163,38 @@ void main() {
     expect(balance(tester), r'−$999.00');
   });
 
+  testWidgets('HOME-04 · HU-09 · ingresos, gastos y pagos se muestran '
+      'separados y el saldo resta los pagos', (tester) async {
+    db.movements.addAll([
+      Movement(
+        id: 1,
+        amount: -120,
+        description: 'Luz',
+        category: 'Servicios',
+        date: day(0, 2),
+      ),
+      Movement(
+        id: 2,
+        amount: -30,
+        description: 'Pago tarjeta',
+        category: DatabaseHelper.paymentCategory,
+        date: day(0, 3),
+        type: MovementType.payment,
+      ),
+    ]);
+    db.incomes.add(
+      Income(id: 3, name: 'Quincena', amount: 500, date: day(0, 1)),
+    );
+    await openHome(tester);
+
+    expect(after(tester, 'Ingresos'), r'$500');
+    expect(after(tester, 'Gastos'), r'$120');
+    expect(after(tester, 'Pagos'), r'$30');
+    expect(find.byKey(const Key('home-payments')), findsOneWidget);
+    expect(balance(tester), r'$350.00');
+    expect(find.text('Pago tarjeta'), findsOneWidget);
+  });
+
   testWidgets('HOME-03 · HU-01 · HU-02 · guardar un gasto y un ingreso '
       'actualiza Inicio sin reabrir', (tester) async {
     await openHome(tester);
