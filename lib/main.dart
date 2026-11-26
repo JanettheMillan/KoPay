@@ -13,6 +13,8 @@ import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/movements_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/auth_api.dart';
+import 'services/http_auth_api.dart';
 import 'utils/app_strings.dart';
 import 'utils/app_colors.dart';
 import 'widgets/add_income_sheet.dart';
@@ -31,6 +33,12 @@ void main() {
     MultiProvider(
       providers: [
         Provider<DatabaseHelper>.value(value: DatabaseHelper.instance),
+        // Cuenta y sesión contra la API Node (S4-07). La dirección sale de
+        // --dart-define=API_URL (ver lib/services/api_config.dart).
+        Provider<AuthApi>(
+          create: (_) => HttpAuthApi(),
+          dispose: (_, api) => (api as HttpAuthApi).close(),
+        ),
         ChangeNotifierProvider(create: (_) => MovementProvider()..load()),
         ChangeNotifierProvider(create: (_) => IncomeProvider()..load()),
         ChangeNotifierProvider(create: (_) => CardProvider()..load()),

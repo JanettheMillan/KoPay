@@ -9,6 +9,7 @@ class AuthValidators {
   static const String nameTooLong = 'El nombre puede tener hasta 80 caracteres';
   static const String emailInvalid = 'Escribe un correo válido';
   static const String passwordRequired = 'Escribe tu contraseña';
+  static const String emailRequired = 'Escribe tu correo';
   static const String passwordTooShort =
       'La contraseña debe tener al menos 8 caracteres';
   static const String passwordTooLong =

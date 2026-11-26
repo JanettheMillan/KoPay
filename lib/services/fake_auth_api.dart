@@ -8,8 +8,8 @@ import 'auth_api.dart';
 /// ni se conecta a ningún servidor.**
 ///
 /// Aplica las mismas reglas que Node: valida todos los campos a la vez,
-/// guarda el correo normalizado y rechaza un correo repetido con
-/// `409 EMAIL_TAKEN`. Las pruebas pueden simular un fallo con
+/// guarda el correo normalizado, rechaza un correo repetido con
+/// `409 EMAIL_TAKEN` y responde el login y `me` como §3.2 y §3.3. Las pruebas pueden simular un fallo con
 /// [failNextWith] y una espera con [delay].
 class FakeAuthApi implements AuthApi {
   FakeAuthApi({this.delay = Duration.zero, DateTime Function()? now})
@@ -21,6 +21,10 @@ class FakeAuthApi implements AuthApi {
   final Random _random = Random();
 
   final Map<String, AuthUser> _accounts = {};
+  final Map<String, String> _passwords = {};
+
+  /// Token de acceso → correo de la sesión.
+  final Map<String, String> _sessions = {};
   Object? _nextError;
 
   /// Cuentas registradas, por correo normalizado.
@@ -35,12 +39,7 @@ class FakeAuthApi implements AuthApi {
     required String email,
     required String password,
   }) async {
-    if (delay > Duration.zero) await Future<void>.delayed(delay);
-    final error = _nextError;
-    if (error != null) {
-      _nextError = null;
-      throw error;
-    }
+    await _beforeAnswer();
 
     final fields = AuthValidators.registration(
       name: name,
@@ -71,7 +70,72 @@ class FakeAuthApi implements AuthApi {
       createdAt: _now().toUtc(),
     );
     _accounts[normalized] = user;
+    // Solo en memoria y solo para pruebas: la API real guarda un hash.
+    _passwords[normalized] = password;
     return user;
+  }
+
+  @override
+  Future<AuthSession> login({
+    required String email,
+    required String password,
+  }) async {
+    await _beforeAnswer();
+    final fields = {
+      if (AuthValidators.normalizeEmail(email).isEmpty)
+        'email': AuthValidators.emailRequired,
+      'password': ?AuthValidators.password(password),
+    };
+    if (fields.isNotEmpty) {
+      throw ApiException(
+        400,
+        ApiErrorCode.validationFailed,
+        'Revisa los datos marcados',
+        fields: fields,
+      );
+    }
+    final normalized = AuthValidators.normalizeEmail(email);
+    final user = _accounts[normalized];
+    // Mismo error si el correo no existe o la contraseña no coincide.
+    if (user == null || _passwords[normalized] != password) {
+      throw const ApiException(
+        401,
+        ApiErrorCode.invalidCredentials,
+        'Correo o contraseña incorrectos',
+      );
+    }
+    final token = _uuid();
+    _sessions[token] = normalized;
+    return AuthSession(
+      accessToken: token,
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      user: user,
+    );
+  }
+
+  @override
+  Future<AuthUser> me(String accessToken) async {
+    await _beforeAnswer();
+    final user = _accounts[_sessions[accessToken]];
+    if (user == null) {
+      throw const ApiException(
+        401,
+        ApiErrorCode.unauthenticated,
+        'Inicia sesión para continuar',
+      );
+    }
+    return user;
+  }
+
+  /// Espera [delay] y lanza el error de [failNextWith], si hay uno.
+  Future<void> _beforeAnswer() async {
+    if (delay > Duration.zero) await Future<void>.delayed(delay);
+    final error = _nextError;
+    if (error != null) {
+      _nextError = null;
+      throw error;
+    }
   }
 
   /// UUID v4 de texto, como los de `gen_random_uuid()`.

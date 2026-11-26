@@ -1,9 +1,9 @@
 /// Contrato de cuenta y sesión entre la app y la API Node
 /// (docs/contrato-api-acceso.md, S3-13).
 ///
-/// Las pantallas solo conocen esta interfaz. Hoy la implementa
-/// [FakeAuthApi] (`fake_auth_api.dart`), en memoria; S4-07 agrega el
-/// cliente HTTP real sin cambiar las pantallas.
+/// Las pantallas solo conocen esta interfaz. La implementan
+/// `HttpAuthApi` (`http_auth_api.dart`, S4-07), que habla con la API, y
+/// `FakeAuthApi` (`fake_auth_api.dart`), en memoria, para las pruebas.
 library;
 
 /// Códigos estables de error del contrato (§2). La app decide con el
@@ -96,6 +96,45 @@ class AuthUser {
   );
 }
 
+/// Sesión que devuelve el login (§3.2). La app guarda [accessToken] sin
+/// leerlo: para ella es opaco (S4-08 lo guarda en el dispositivo).
+class AuthSession {
+  final String accessToken;
+
+  /// Siempre `Bearer`.
+  final String tokenType;
+
+  /// Segundos que dura [accessToken].
+  final int expiresIn;
+  final AuthUser user;
+
+  /// Desde S4-02 la API agrega el token de renovación. La app acepta la
+  /// respuesta con o sin él (§3.2).
+  final String? refreshToken;
+  final int? refreshExpiresIn;
+
+  const AuthSession({
+    required this.accessToken,
+    required this.tokenType,
+    required this.expiresIn,
+    required this.user,
+    this.refreshToken,
+    this.refreshExpiresIn,
+  });
+
+  factory AuthSession.fromMap(Map<String, dynamic> map) => AuthSession(
+    accessToken: map['accessToken'] as String,
+    tokenType: map['tokenType'] as String,
+    expiresIn: (map['expiresIn'] as num).toInt(),
+    user: AuthUser.fromMap(map['user'] as Map<String, dynamic>),
+    refreshToken: map['refreshToken'] as String?,
+    refreshExpiresIn: (map['refreshExpiresIn'] as num?)?.toInt(),
+  );
+
+  @override
+  String toString() => 'AuthSession(${user.email}, expiresIn: $expiresIn)';
+}
+
 /// Rutas de cuenta y sesión que usa la app.
 abstract class AuthApi {
   /// `POST /api/auth/register` (§3.1). Devuelve la cuenta creada; no abre
@@ -106,4 +145,14 @@ abstract class AuthApi {
     required String email,
     required String password,
   });
+
+  /// `POST /api/auth/login` (§3.2). Lanza [ApiException]
+  /// (`VALIDATION_FAILED`, `INVALID_CREDENTIALS`, `TOO_MANY_ATTEMPTS`,
+  /// `INTERNAL`, `UNAVAILABLE`) o [NetworkException].
+  Future<AuthSession> login({required String email, required String password});
+
+  /// `GET /api/auth/me` (§3.3): la cuenta de la sesión de [accessToken].
+  /// Lanza [ApiException] (`UNAUTHENTICATED` si el token no sirve,
+  /// `INTERNAL`, `UNAVAILABLE`) o [NetworkException].
+  Future<AuthUser> me(String accessToken);
 }

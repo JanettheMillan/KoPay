@@ -29,6 +29,16 @@ class _PendingApi implements AuthApi {
     calls++;
     return completer.future;
   }
+
+  // La pantalla de registro no usa estas dos (S4-07 las agregó a AuthApi).
+  @override
+  Future<AuthSession> login({
+    required String email,
+    required String password,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<AuthUser> me(String accessToken) => throw UnimplementedError();
 }
 
 void main() {
