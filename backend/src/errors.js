@@ -16,6 +16,7 @@ const ERROR_CODES = Object.freeze({
   TOO_MANY_ATTEMPTS: 'TOO_MANY_ATTEMPTS',
   INTERNAL: 'INTERNAL',
   UNAVAILABLE: 'UNAVAILABLE',
+  VERSION_CONFLICT: 'VERSION_CONFLICT',
 });
 
 /** Código por defecto para cada estado HTTP. */

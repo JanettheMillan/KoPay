@@ -19,6 +19,8 @@ function createMemoryStore({ now = () => new Date() } = {}) {
    * con su `revokedAt`, como historial.
    */
   const grantsById = new Map();
+  /** Movimientos por `id`, como la tabla `movements` (S5-01). */
+  const movementsById = new Map();
   /**
    * Código de recuperación vigente por cuenta (S4-19), como la tabla
    * `password_resets`: pedir otro reemplaza al anterior.
@@ -112,6 +114,72 @@ function createMemoryStore({ now = () => new Date() } = {}) {
         if (session.refreshTokenHash === refreshTokenHash) return { ...session };
       }
       return null;
+    },
+
+    // ── Movimientos (S5-01) ────────────────────────────────────────
+
+    /** Guarda un movimiento normal de `userId` y lo devuelve con `id` y `version` 1. */
+    async createMovement({ userId, amount, description, category, date, note }) {
+      const stamp = now().toISOString();
+      const movement = {
+        id: randomUUID(),
+        userId,
+        amount: Math.round(amount * 100) / 100,
+        description,
+        category,
+        date: date.toISOString(),
+        note: note ?? null,
+        type: 'regular',
+        cardId: null,
+        debtId: null,
+        version: 1,
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
+      movementsById.set(movement.id, movement);
+      return { ...movement };
+    },
+
+    /** Movimiento con ese `id`, de cualquier cuenta, o `null`. El servicio revisa el dueño. */
+    async findMovementById(id) {
+      const movement = movementsById.get(id);
+      return movement ? { ...movement } : null;
+    },
+
+    /** Movimientos de `userId`, del más reciente al más antiguo; `from`/`to` acotan la fecha. */
+    async listMovements({ userId, from, to }) {
+      return [...movementsById.values()]
+        .filter((m) => m.userId === userId)
+        .filter((m) => !from || new Date(m.date) >= from)
+        .filter((m) => !to || new Date(m.date) < to)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
+        .map((m) => ({ ...m }));
+    },
+
+    /**
+     * Cambia el movimiento solo si es de `userId` y sigue en
+     * `expectedVersion`; sube la versión. Devuelve `null` si no se cambió.
+     */
+    async updateMovement({ id, userId, expectedVersion, amount, description, category, date, note }) {
+      const movement = movementsById.get(id);
+      if (!movement || movement.userId !== userId || movement.version !== expectedVersion) return null;
+      Object.assign(movement, {
+        amount: Math.round(amount * 100) / 100,
+        description,
+        category,
+        date: date.toISOString(),
+        note: note ?? null,
+        version: movement.version + 1,
+        updatedAt: now().toISOString(),
+      });
+      return { ...movement };
+    },
+
+    /** Borra el movimiento si es de `userId`. Devuelve `true` si lo borró. */
+    async deleteMovement({ id, userId }) {
+      const movement = movementsById.get(id);
+      if (!movement || movement.userId !== userId) return false;
+      return movementsById.delete(id);
     },
 
     /**
