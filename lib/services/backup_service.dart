@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart';
 
+import '../models/card_model.dart';
+import '../models/debt_model.dart';
 import '../models/income_model.dart';
 import '../models/movement_model.dart';
 import '../providers/category_provider.dart';
@@ -32,7 +34,53 @@ class BackupService {
 
   static const String movementsSheet = 'Movimientos';
   static const String incomesSheet = 'Ingresos';
+  static const String cardsSheet = 'Tarjetas';
+  static const String debtsSheet = 'Deudas';
   static const String backupSheet = 'Respaldo';
+
+  /// Valores de la columna `Tipo` de la hoja `Movimientos`.
+  static const String expenseLabel = 'Gasto';
+  static const String entryLabel = 'Entrada';
+  static const String paymentLabel = 'Pago';
+
+  /// Valores de la columna `Estado` de la hoja `Deudas`.
+  static const String pendingLabel = 'Pendiente';
+  static const String paidLabel = 'Pagada';
+
+  static const List<String> movementsHeader = [
+    'Fecha',
+    'Descripción',
+    'Categoría',
+    'Importe',
+    'Nota',
+    'Tipo',
+    'De',
+  ];
+
+  static const List<String> incomesHeader = [
+    'Fecha',
+    'Nombre',
+    'Importe',
+    'Nota',
+  ];
+
+  static const List<String> cardsHeader = [
+    'Nombre',
+    'Banco',
+    'Límite',
+    'Saldo usado',
+    'Día de corte',
+    'Día de pago',
+    'Pago mínimo',
+  ];
+
+  static const List<String> debtsHeader = [
+    'Nombre',
+    'Monto',
+    'Saldo restante',
+    'Fecha',
+    'Estado',
+  ];
 
   /// Tamaño máximo del CSV que se acepta: 5 MB.
   static const int maxCsvBytes = 5 * 1024 * 1024;
@@ -46,20 +94,35 @@ class BackupService {
 
   // ── Exportar ─────────────────────────────────────────────────
 
-  /// Crea el libro con las hojas `Movimientos`, `Ingresos` y `Respaldo`.
-  /// Las filas van de la fecha más reciente a la más antigua.
-  static Uint8List buildXlsx(List<Movement> movements, List<Income> incomes) {
+  /// Crea el libro con las hojas `Movimientos`, `Ingresos`, `Tarjetas`,
+  /// `Deudas` y `Respaldo`, en ese orden.
+  ///
+  /// Movimientos e ingresos van de la fecha más reciente a la más
+  /// antigua. [cards] y [debts] se usan en sus hojas y para nombrar el
+  /// destino de un pago en la columna `De`.
+  static Uint8List buildXlsx(
+    List<Movement> movements,
+    List<Income> incomes, {
+    List<CardModel> cards = const [],
+    List<DebtModel> debts = const [],
+  }) {
     final ms = [...movements]..sort((a, b) => b.date.compareTo(a.date));
     final ins = [...incomes]..sort((a, b) => b.date.compareTo(a.date));
+    final cardNames = {
+      for (final c in cards)
+        if (c.id != null) c.id!: c.name,
+    };
+    final debtNames = {
+      for (final d in debts)
+        if (d.id != null) d.id!: d.name,
+    };
 
     final excel = Excel.createExcel();
     final defaultSheet = excel.getDefaultSheet()!;
     excel.rename(defaultSheet, movementsSheet);
 
     final m = excel[movementsSheet];
-    m.appendRow(
-      _texts(['Fecha', 'Descripción', 'Categoría', 'Importe', 'Nota']),
-    );
+    m.appendRow(_texts(movementsHeader));
     for (final x in ms) {
       m.appendRow([
         _date(x.date),
@@ -67,11 +130,13 @@ class BackupService {
         TextCellValue(x.category),
         DoubleCellValue(x.amount),
         TextCellValue(x.note ?? ''),
+        TextCellValue(typeLabel(x)),
+        TextCellValue(paymentSource(x, cardNames, debtNames)),
       ]);
     }
 
     final i = excel[incomesSheet];
-    i.appendRow(_texts(['Fecha', 'Nombre', 'Importe', 'Nota']));
+    i.appendRow(_texts(incomesHeader));
     for (final x in ins) {
       i.appendRow([
         _date(x.date),
@@ -81,11 +146,39 @@ class BackupService {
       ]);
     }
 
+    final c = excel[cardsSheet];
+    c.appendRow(_texts(cardsHeader));
+    for (final x in cards) {
+      c.appendRow([
+        TextCellValue(x.name),
+        TextCellValue(x.bank),
+        DoubleCellValue(x.creditLimit),
+        DoubleCellValue(x.usedBalance),
+        IntCellValue(x.cutDay),
+        IntCellValue(x.paymentDay),
+        DoubleCellValue(x.minimumPayment),
+      ]);
+    }
+
+    final d = excel[debtsSheet];
+    d.appendRow(_texts(debtsHeader));
+    for (final x in debts) {
+      d.appendRow([
+        TextCellValue(x.name),
+        DoubleCellValue(x.monthlyPayment),
+        DoubleCellValue(x.remainingBalance),
+        _date(x.dueDate),
+        TextCellValue(x.isPaid ? paidLabel : pendingLabel),
+      ]);
+    }
+
     // Mismo formato que el CSV de importación. La fecha va como texto
     // AAAA-MM-DD para que al guardarla como CSV no cambie de formato.
+    // Los pagos no se incluyen: el CSV no los admite (ver el documento
+    // de criterios, sección 3).
     final r = excel[backupSheet];
     r.appendRow(_texts(csvHeader));
-    for (final row in backupRows(ms, ins)) {
+    for (final row in backupRows(ms.where((x) => !x.isPayment).toList(), ins)) {
       r.appendRow([
         TextCellValue(row[0] as String),
         TextCellValue(row[1] as String),
@@ -100,8 +193,33 @@ class BackupService {
     return Uint8List.fromList(excel.encode()!);
   }
 
+  /// `Gasto`, `Entrada` o `Pago`, según el movimiento.
+  static String typeLabel(Movement movement) {
+    if (movement.isPayment) return paymentLabel;
+    return movement.amount < 0 ? expenseLabel : entryLabel;
+  }
+
+  /// Nombre de la tarjeta o deuda a la que se abonó un pago. Vacío si el
+  /// movimiento no es pago o si su tarjeta o deuda ya no existe.
+  static String paymentSource(
+    Movement movement,
+    Map<int, String> cardNames,
+    Map<int, String> debtNames,
+  ) {
+    if (!movement.isPayment) return '';
+    final cardId = movement.cardId;
+    if (cardId != null) {
+      final name = cardNames[cardId];
+      if (name != null) return name;
+    }
+    final debtId = movement.debtId;
+    if (debtId != null) return debtNames[debtId] ?? '';
+    return '';
+  }
+
   /// Filas del formato de respaldo (sin encabezado): primero los
-  /// movimientos y luego los ingresos.
+  /// movimientos y luego los ingresos. [buildXlsx] no le pasa los pagos,
+  /// porque el CSV no los admite.
   static List<List<Object>> backupRows(
     List<Movement> movements,
     List<Income> incomes,

@@ -95,13 +95,23 @@ class SettingsScreen extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final movements = context.read<MovementProvider?>()?.movements ?? const [];
     final incomes = context.read<IncomeProvider?>()?.incomes ?? const [];
+    final cards = context.read<CardProvider?>()?.cards ?? const [];
+    final debts = context.read<DebtProvider?>()?.debts ?? const [];
     try {
-      final bytes = BackupService.buildXlsx(movements, incomes);
+      final bytes = BackupService.buildXlsx(
+        movements,
+        incomes,
+        cards: cards,
+        debts: debts,
+      );
       await BackupPlatform.instance.shareXlsx(
         bytes,
         BackupService.fileName(DateTime.now()),
       );
-      if (movements.isEmpty && incomes.isEmpty) {
+      if (movements.isEmpty &&
+          incomes.isEmpty &&
+          cards.isEmpty &&
+          debts.isEmpty) {
         messenger.showSnackBar(SnackBar(content: Text(s.exportEmpty)));
       }
     } catch (_) {

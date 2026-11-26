@@ -9,6 +9,8 @@ import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kopay/models/card_model.dart';
+import 'package:kopay/models/debt_model.dart';
 import 'package:kopay/models/income_model.dart';
 import 'package:kopay/models/movement_model.dart';
 import 'package:kopay/services/backup_service.dart';
@@ -32,6 +34,35 @@ void main() {
   final incomes = [
     Income(name: 'Quincena', amount: 12000, date: DateTime(2026, 11, 1)),
   ];
+  final cards = [
+    const CardModel(
+      id: 1,
+      name: 'Oro',
+      bank: 'BBVA',
+      creditLimit: 30000,
+      usedBalance: 4500.5,
+      cutDay: 15,
+      paymentDay: 5,
+      minimumPayment: 900,
+    ),
+  ];
+  final debts = [
+    DebtModel(
+      id: 2,
+      name: 'Préstamo auto',
+      monthlyPayment: 3200,
+      remainingBalance: 45000,
+      dueDate: DateTime(2026, 12, 10),
+    ),
+    DebtModel(
+      id: 3,
+      name: 'Tarjeta departamental',
+      monthlyPayment: 500,
+      remainingBalance: 0,
+      dueDate: DateTime(2026, 11, 20),
+      status: DebtStatus.paid,
+    ),
+  ];
 
   Excel decode(Uint8List bytes) => Excel.decodeBytes(bytes);
 
@@ -41,33 +72,59 @@ void main() {
 
   String text(CellValue? v) => v is TextCellValue ? v.value.text ?? '' : '$v';
 
+  /// Un importe o un día se lee igual si Excel lo guardó como entero o
+  /// como decimal.
+  num number(CellValue? v) => switch (v) {
+    DoubleCellValue(:final value) => value,
+    IntCellValue(:final value) => value,
+    _ => throw TestFailure('No es un número: $v'),
+  };
+
   group('Exportar XLSX', () {
-    test('RES-01 · HU-26 · tres hojas con columnas en orden y todos los '
+    test('RES-01 · HU-26 · cinco hojas con columnas en orden y todos los '
         'registros', () {
-      final book = decode(BackupService.buildXlsx(movements, incomes));
+      final book = decode(
+        BackupService.buildXlsx(movements, incomes, cards: cards, debts: debts),
+      );
 
       expect(book.tables.keys, [
         BackupService.movementsSheet,
         BackupService.incomesSheet,
+        BackupService.cardsSheet,
+        BackupService.debtsSheet,
         BackupService.backupSheet,
       ]);
 
       final m = rowsOf(book, BackupService.movementsSheet);
-      expect(m.first.map(text), [
-        'Fecha',
-        'Descripción',
-        'Categoría',
-        'Importe',
-        'Nota',
-      ]);
+      expect(m.first.map(text), BackupService.movementsHeader);
       expect(m.length, 1 + movements.length);
       // Más reciente primero.
       expect(text(m[1][1]), 'Camión, ida y vuelta');
       expect(text(m[2][1]), 'Súper');
 
       final i = rowsOf(book, BackupService.incomesSheet);
-      expect(i.first.map(text), ['Fecha', 'Nombre', 'Importe', 'Nota']);
+      expect(i.first.map(text), BackupService.incomesHeader);
       expect(text(i[1][1]), 'Quincena');
+
+      final c = rowsOf(book, BackupService.cardsSheet);
+      expect(c.first.map(text), BackupService.cardsHeader);
+      expect(c.length, 1 + cards.length);
+      expect(c[1].map(text).take(2), ['Oro', 'BBVA']);
+      expect(number(c[1][2]), 30000);
+      expect(number(c[1][3]), 4500.5);
+      expect(number(c[1][4]), 15);
+      expect(number(c[1][5]), 5);
+      expect(number(c[1][6]), 900);
+
+      final d = rowsOf(book, BackupService.debtsSheet);
+      expect(d.first.map(text), BackupService.debtsHeader);
+      expect(d.length, 1 + debts.length);
+      expect(d[1].map(text).take(1), ['Préstamo auto']);
+      expect(number(d[1][1]), 3200);
+      expect(number(d[1][2]), 45000);
+      expect(d[1][3], isA<DateCellValue>());
+      expect(text(d[1][4]), BackupService.pendingLabel);
+      expect(text(d[2][4]), BackupService.paidLabel);
 
       final r = rowsOf(book, BackupService.backupSheet);
       expect(r.first.map(text), BackupService.csvHeader);
@@ -77,9 +134,15 @@ void main() {
     test('RES-02 · HU-26 · sin registros crea el archivo con solo '
         'encabezados', () {
       final book = decode(BackupService.buildXlsx(const [], const []));
-      expect(rowsOf(book, BackupService.movementsSheet).length, 1);
-      expect(rowsOf(book, BackupService.incomesSheet).length, 1);
-      expect(rowsOf(book, BackupService.backupSheet).length, 1);
+      for (final sheet in [
+        BackupService.movementsSheet,
+        BackupService.incomesSheet,
+        BackupService.cardsSheet,
+        BackupService.debtsSheet,
+        BackupService.backupSheet,
+      ]) {
+        expect(rowsOf(book, sheet).length, 1, reason: sheet);
+      }
     });
 
     test('RES-03 · HU-26 · importe como número con signo y fecha como '
@@ -93,9 +156,95 @@ void main() {
       expect((row[3] as DoubleCellValue).value, -250.5);
     });
 
+    test('RES-05 · HU-26 · HU-13 a HU-23 · Movimientos distingue gasto, '
+        'entrada y pago con su tarjeta o deuda', () {
+      final withPayments = [
+        ...movements,
+        Movement(
+          amount: -1500,
+          description: 'Pago Oro',
+          category: 'Pago tarjeta',
+          date: DateTime(2026, 11, 5),
+          type: MovementType.payment,
+          cardId: 1,
+        ),
+        Movement(
+          amount: -3200,
+          description: 'Pago Préstamo auto',
+          category: 'Pago deuda',
+          date: DateTime(2026, 11, 6),
+          type: MovementType.payment,
+          debtId: 2,
+        ),
+        Movement(
+          amount: 12000,
+          description: 'Quincena',
+          category: 'Ingreso',
+          date: DateTime(2026, 11, 7),
+        ),
+        // Pago cuya tarjeta ya no existe: se exporta sin destino.
+        Movement(
+          amount: -100,
+          description: 'Pago viejo',
+          category: 'Pago tarjeta',
+          date: DateTime(2026, 11, 8),
+          type: MovementType.payment,
+        ),
+      ];
+
+      final book = decode(
+        BackupService.buildXlsx(
+          withPayments,
+          incomes,
+          cards: cards,
+          debts: debts,
+        ),
+      );
+      final rows = rowsOf(book, BackupService.movementsSheet).skip(1).toList();
+
+      // Más reciente primero: pago sin tarjeta, entrada, pago de deuda,
+      // pago de tarjeta y los dos movimientos de ejemplo.
+      expect(rows.map((r) => text(r[5])), [
+        BackupService.paymentLabel,
+        BackupService.entryLabel,
+        BackupService.paymentLabel,
+        BackupService.paymentLabel,
+        BackupService.expenseLabel,
+        BackupService.expenseLabel,
+      ]);
+      expect(rows.map((r) => text(r[6])), [
+        '',
+        '',
+        'Préstamo auto',
+        'Oro',
+        '',
+        '',
+      ]);
+    });
+
     test('RES-04 · HU-26 · HU-27 · la hoja Respaldo guardada como CSV se '
         'importa igual', () {
-      final book = decode(BackupService.buildXlsx(movements, incomes));
+      // Con pagos incluidos: la hoja Respaldo los omite porque el CSV no
+      // los admite (ver criterios, sección 3).
+      final withPayments = [
+        ...movements,
+        Movement(
+          amount: -1500,
+          description: 'Pago Oro',
+          category: 'Pago tarjeta',
+          date: DateTime(2026, 11, 5),
+          type: MovementType.payment,
+          cardId: 1,
+        ),
+      ];
+      final book = decode(
+        BackupService.buildXlsx(
+          withPayments,
+          incomes,
+          cards: cards,
+          debts: debts,
+        ),
+      );
       final rows = rowsOf(book, BackupService.backupSheet)
           .map(
             (r) => r
