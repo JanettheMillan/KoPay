@@ -18,6 +18,7 @@ import 'screens/settings_screen.dart';
 import 'services/accountants_api.dart';
 import 'services/auth_api.dart';
 import 'services/http_auth_api.dart';
+import 'services/movements_api.dart';
 import 'services/session_store.dart';
 import 'utils/app_strings.dart';
 import 'utils/app_colors.dart';
@@ -56,7 +57,12 @@ void main() {
             store: SecureSessionStore(),
           )..restore(),
         ),
-        ChangeNotifierProvider(create: (_) => MovementProvider()..load()),
+        // Con sesión de usuario, los movimientos van a la API (S5-07);
+        // sin sesión, solo a SQLite.
+        ChangeNotifierProxyProvider<SessionProvider, MovementProvider>(
+          create: (_) => MovementProvider(api: HttpMovementsApi())..load(),
+          update: (_, session, movements) => movements!..bindSession(session),
+        ),
         ChangeNotifierProvider(create: (_) => IncomeProvider()..load()),
         ChangeNotifierProvider(create: (_) => CardProvider()..load()),
         ChangeNotifierProvider(create: (_) => DebtProvider()..load()),

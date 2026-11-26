@@ -53,6 +53,11 @@ class ApiException implements Exception {
     );
   }
 
+  /// Mensaje para mostrar en una sola línea: el del primer campo con
+  /// problema, o [message] si no hay campos (S5-07).
+  String get displayMessage =>
+      fields.isNotEmpty ? fields.values.first : message;
+
   @override
   String toString() => 'ApiException($status $code)';
 }

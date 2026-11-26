@@ -30,7 +30,8 @@ void main() {
     return info.map((c) => c['name'] as String).toList();
   }
 
-  test('crea las tablas movements, incomes, cards, debts y settings', () async {
+  test('crea las tablas movements, incomes, cards, debts, settings y '
+      'movement_remote', () async {
     final db = await helper.database;
     final tables = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type = 'table' "
@@ -38,7 +39,8 @@ void main() {
     );
     expect(
       tables.map((t) => t['name']).toSet(),
-      {'movements', 'incomes', 'cards', 'debts', 'settings'},
+      // movement_remote: relación con los movimientos de la API (S5-07).
+      {'movements', 'incomes', 'cards', 'debts', 'settings', 'movement_remote'},
     );
     expect(await db.getVersion(), DatabaseHelper.version);
   });
@@ -54,8 +56,12 @@ void main() {
       category: 'c',
       date: sample,
     ).toMap().keys;
-    final incomeKeys =
-        Income(id: 1, name: 'n', amount: 1, date: sample).toMap().keys;
+    final incomeKeys = Income(
+      id: 1,
+      name: 'n',
+      amount: 1,
+      date: sample,
+    ).toMap().keys;
 
     expect(await columnsOf(db, 'movements'), unorderedEquals(movementKeys));
     expect(await columnsOf(db, 'incomes'), unorderedEquals(incomeKeys));
@@ -93,8 +99,9 @@ void main() {
     final movementId = await db.insert('movements', movement.toMap());
     final incomeId = await db.insert('incomes', income.toMap());
 
-    final storedMovement =
-        Movement.fromMap((await db.query('movements')).single);
+    final storedMovement = Movement.fromMap(
+      (await db.query('movements')).single,
+    );
     final storedIncome = Income.fromMap((await db.query('incomes')).single);
 
     expect(storedMovement, movement.copyWith(id: movementId));

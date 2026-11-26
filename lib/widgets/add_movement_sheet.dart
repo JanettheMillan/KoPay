@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/movement_model.dart';
 import '../providers/movement_provider.dart';
+import '../services/auth_api.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
@@ -126,6 +127,16 @@ class _AddMovementSheetState extends State<AddMovementSheet> {
     } on ValidationException catch (e) {
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiException catch (e) {
+      // S5-07: mensaje de la API, por ejemplo el de un campo o el de
+      // 409 VERSION_CONFLICT (la lista ya se recargó).
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.displayMessage)));
+    } on NetworkException {
+      setState(() => _saving = false);
+      messenger.showSnackBar(
+        const SnackBar(content: Text(NetworkException.message)),
+      );
     } catch (_) {
       setState(() => _saving = false);
       messenger.showSnackBar(
@@ -146,6 +157,14 @@ class _AddMovementSheetState extends State<AddMovementSheet> {
       await provider.delete(widget.initial!.id!);
       navigator.pop();
       messenger.showSnackBar(SnackBar(content: Text(s.movementDeleted)));
+    } on ApiException catch (e) {
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.displayMessage)));
+    } on NetworkException {
+      setState(() => _saving = false);
+      messenger.showSnackBar(
+        const SnackBar(content: Text(NetworkException.message)),
+      );
     } catch (_) {
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text(s.removeError)));
