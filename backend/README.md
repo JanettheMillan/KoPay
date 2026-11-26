@@ -2,7 +2,7 @@
 
 API Node.js de KoPay (Express 5). Expone la ruta de salud, el registro de cuentas y el inicio de sesión. La sincronización se agrega en tarjetas siguientes.
 
-**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales), S3-09 (login), S4-01 (JWT y PostgreSQL en `npm start`).
+**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales), S3-09 (login), S4-01 (JWT y PostgreSQL en `npm start`), S4-19 (recuperación de acceso).
 
 ## 1. Requisitos
 
@@ -144,19 +144,37 @@ curl -i http://localhost:3000/api/auth/me -H "Authorization: Bearer <accessToken
 
 En el Sprint 3 el `accessToken` es texto aleatorio que vence a los 900 segundos. Solo se guarda su hash SHA-256 (`token_hash` de la tabla `sessions`). S4-01 lo cambia por un JWT sin cambiar la respuesta. El middleware `src/middleware/authenticate.js` deja `req.auth.userId` para el control de roles (S4-04).
 
+### Recuperación de acceso (S4-19)
+
+1. `POST /api/auth/recover` con `{ "email" }` responde siempre `200 { message }`, exista o no la cuenta. Si existe, envía por correo un código de 6 dígitos que vence en 15 minutos.
+2. `POST /api/auth/reset` con `{ "email", "code", "password" }` responde `204`. Cambia la contraseña y cierra todas las sesiones de la cuenta. Un código incorrecto, vencido o usado responde `400` con `fields.code`; después de 5 intentos fallidos, `429 TOO_MANY_ATTEMPTS`.
+
+En `development` y `test` no se envía ningún correo: el código sale en la consola del servicio.
+
+```bash
+curl -s -X POST http://localhost:3000/api/auth/recover \
+  -H "Content-Type: application/json" -d '{"email":"ana@mail.com"}'
+# En la consola: [correo de prueba, no se envió] Código de recuperación para ana@mail.com: 048213
+curl -i -X POST http://localhost:3000/api/auth/reset \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ana@mail.com","code":"048213","password":"nueva2026"}'
+```
+
+El código se guarda como HMAC-SHA256 con `JWT_SECRET` (tabla `password_resets`, migración `003`). Reglas completas en las secciones 3.7 a 3.9 del contrato.
+
 ## 5. Ambientes
 
 | `NODE_ENV` | Para qué | Necesita `.env` |
 | :--- | :--- | :--- |
 | `development` (por defecto) | Trabajar en la computadora | No |
 | `test` | Pruebas automáticas | No |
-| `production` | Servidor real | Sí: `DATABASE_URL`, `JWT_SECRET` (32 caracteres o más, distinto del ejemplo) y `CORS_ORIGIN` |
+| `production` | Servidor real | Sí: `DATABASE_URL`, `JWT_SECRET` (32 caracteres o más, distinto del ejemplo), `CORS_ORIGIN`, y `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` y `MAIL_FROM` para el correo de recuperación |
 
 En producción, si falta algo, el servicio no arranca y dice qué falta:
 
 ```
 $ NODE_ENV=production npm start
-Configuración de producción incompleta: falta DATABASE_URL; falta JWT_SECRET; falta CORS_ORIGIN.
+Configuración de producción incompleta: falta DATABASE_URL; falta JWT_SECRET; falta CORS_ORIGIN; falta SMTP_HOST; falta SMTP_PORT; falta SMTP_USER; falta SMTP_PASS; falta MAIL_FROM.
 ```
 
 Las variables están explicadas en [`.env.example`](.env.example).

@@ -12,8 +12,8 @@ const dotenv = require('dotenv');
  *
  * - `development` y `test` funcionan sin `.env`: usan valores locales
  *   que no sirven fuera de la computadora del desarrollador.
- * - `production` exige `DATABASE_URL` y un `JWT_SECRET` real; si falta
- *   alguno, el servidor no arranca.
+ * - `production` exige `DATABASE_URL`, un `JWT_SECRET` real y el correo
+ *   SMTP (S4-19); si falta alguno, el servidor no arranca.
  *
  * Los secretos van en `backend/.env` (nunca se sube) o en las variables
  * del servicio donde se despliegue. La plantilla es `.env.example`.
@@ -26,6 +26,12 @@ const MIN_SECRET_LENGTH = 32;
 
 /** Valor de ejemplo de `.env.example`; nunca es un secreto válido. */
 const EXAMPLE_SECRET = 'cambia-esto-por-un-secreto-largo';
+
+/** Variables del correo SMTP, obligatorias en producción (S4-19). */
+const SMTP_VARIABLES = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM'];
+
+/** Remitente de los correos de prueba (`jsonTransport`, no se envían). */
+const LOCAL_MAIL_FROM = 'KoPay <no-reply@kopay.local>';
 
 /** Valores locales para desarrollo y pruebas, nunca para producción. */
 const LOCAL_DEFAULTS = {
@@ -75,6 +81,7 @@ function loadConfig(env = process.env) {
   const databaseUrl = read(env, 'DATABASE_URL') ?? local.databaseUrl;
   const jwtSecret = read(env, 'JWT_SECRET') ?? local.jwtSecret;
   const corsOrigin = read(env, 'CORS_ORIGIN') ?? local.corsOrigin;
+  const mail = readMail(env, name);
 
   if (name === 'production') {
     const problems = [];
@@ -89,6 +96,12 @@ function loadConfig(env = process.env) {
       );
     }
     if (!corsOrigin) problems.push('falta CORS_ORIGIN');
+    for (const variable of SMTP_VARIABLES) {
+      if (read(env, variable) === undefined) problems.push(`falta ${variable}`);
+    }
+    if (read(env, 'SMTP_PORT') !== undefined && mail.port === undefined) {
+      problems.push('SMTP_PORT debe ser un número de 1 a 65535');
+    }
     if (problems.length > 0) {
       throw new Error(`Configuración de producción incompleta: ${problems.join('; ')}.`);
     }
@@ -101,6 +114,28 @@ function loadConfig(env = process.env) {
     databaseUrl,
     jwtSecret,
     corsOrigin,
+    mail,
+  });
+}
+
+/**
+ * Correo de recuperación (S4-19). En `development` y `test` usa
+ * `jsonTransport`: no envía nada y no necesita red. En `production`
+ * usa SMTP con las variables de [SMTP_VARIABLES].
+ */
+function readMail(env, name) {
+  if (name !== 'production') {
+    return Object.freeze({ transport: 'json', from: read(env, 'MAIL_FROM') ?? LOCAL_MAIL_FROM });
+  }
+  const rawPort = read(env, 'SMTP_PORT');
+  const port = rawPort !== undefined && /^\d+$/.test(rawPort) ? Number(rawPort) : undefined;
+  return Object.freeze({
+    transport: 'smtp',
+    host: read(env, 'SMTP_HOST'),
+    port: port !== undefined && port >= 1 && port <= 65535 ? port : undefined,
+    user: read(env, 'SMTP_USER'),
+    pass: read(env, 'SMTP_PASS'),
+    from: read(env, 'MAIL_FROM'),
   });
 }
 
@@ -126,6 +161,10 @@ function describeConfig(config) {
     corsOrigin: config.corsOrigin,
     databaseUrl: config.databaseUrl ? 'definida' : 'sin definir',
     jwtSecret: config.jwtSecret ? 'definido' : 'sin definir',
+    mail:
+      config.mail?.transport === 'smtp'
+        ? `SMTP ${config.mail.host ? 'definido' : 'sin definir'}`
+        : 'jsonTransport (sin envío real)',
   };
 }
 
@@ -133,6 +172,7 @@ module.exports = {
   ENVIRONMENTS,
   EXAMPLE_SECRET,
   MIN_SECRET_LENGTH,
+  SMTP_VARIABLES,
   describeConfig,
   loadConfig,
   loadEnvFile,

@@ -10,18 +10,26 @@ const { apiRoutes } = require('./routes');
 const { createAccountantAccessService } = require('./services/accountant-access.service');
 const { createAuthService } = require('./services/auth.service');
 const { createHealthService } = require('./services/health.service');
+const { createMailer } = require('./services/mail.service');
+const { createRecoveryService } = require('./services/recovery.service');
 const { createSessionService } = require('./services/session.service');
 
 /**
  * Crea la aplicación Express sin abrir el puerto, para poder probarla
  * con supertest. Las dependencias se pueden reemplazar en las pruebas.
  */
-function createApp({ config = loadConfig(), store = createMemoryStore(), now } = {}) {
+function createApp({
+  config = loadConfig(),
+  store = createMemoryStore(),
+  now,
+  mailer = createMailer({ config }),
+} = {}) {
   const sessionService = createSessionService({ store, now, secret: config.jwtSecret });
   const services = {
     healthService: createHealthService({ store, config }),
     sessionService,
     authService: createAuthService({ store, sessionService }),
+    recoveryService: createRecoveryService({ store, mailer, secret: config.jwtSecret, now }),
     accountantAccessService: createAccountantAccessService({ store }),
     // El rol se lee de la base en cada petición (S4-04).
     rbac: createRbac({

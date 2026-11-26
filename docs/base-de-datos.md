@@ -59,7 +59,7 @@ Convenciones: llaves `uuid` con `gen_random_uuid()`; dinero en `numeric(14,2)`. 
 
 ## 4. Migraciones
 
-- Viven en `backend/migrations/` como archivos SQL numerados: `001_users_roles_sessions.sql`, `002_accountant_access.sql`, etc.
+- Viven en `backend/migrations/` como archivos SQL numerados: `001_users_roles_sessions.sql`, `002_accountant_access.sql`, `003_password_resets.sql`, etc.
 - Un script `npm run migrate` (S3-05) las aplica en orden, cada una en su propia transacción, y anota el número en la tabla `schema_migrations`. Si una falla, se deshace completa y el script termina con error.
 - **Una migración aplicada no se edita.** Para cambiar algo, se agrega una migración nueva.
 - Cada migración va en el PR de la tarjeta que la necesita, con su prueba.
@@ -68,6 +68,8 @@ Convenciones: llaves `uuid` con `gen_random_uuid()`; dinero en `numeric(14,2)`. 
 > **Implementado en S3-05** ([#53](https://github.com/JanettheMillan/KoPay/issues/53)): `backend/migrations/001_users_roles_sessions.sql`, `backend/src/data/migrate.js`, `backend/src/data/pg-store.js` (misma interfaz que la memoria: `ping`, `createUser` y `findUserByEmail`, con `passwordHash`) y `npm run migrate`. DB-01, DB-02 y DB-05 tienen prueba. Desde S4-01 ([#67](https://github.com/JanettheMillan/KoPay/issues/67)), `npm start` usa `createPgStore` con `DATABASE_URL`.
 >
 > **Implementado en S3-06** ([#54](https://github.com/JanettheMillan/KoPay/issues/54)): `backend/migrations/002_accountant_access.sql` con el esquema de [reglas-roles-contador.md §6](reglas-roles-contador.md), y los permisos en `pg-store.js` (`createGrant`, `listActiveGrantsByUser`, `findActiveGrant`, `revokeGrant` y `listGrantsByUser`, la misma interfaz que S4-05 usa en memoria). DB-03 tiene prueba.
+
+> **Implementado en S4-19** ([#85](https://github.com/JanettheMillan/KoPay/issues/85)): `backend/migrations/003_password_resets.sql` (`user_id`, `code_hash`, `created_at`, `expires_at`, `attempts`, `used_at`). Solo se guarda el hash HMAC-SHA256 del código de 6 dígitos; vale el más reciente de cada cuenta. En `pg-store.js`: `createPasswordReset`, `findLatestPasswordReset`, `recordPasswordResetFailure` y `completePasswordReset`, que en una transacción marca el código usado, cambia `password_hash` y llena `revoked_at` en todas las sesiones. DB-06 tiene prueba.
 
 ## 5. Cómo se comprueba
 
@@ -80,6 +82,7 @@ Estos casos se ejecutan en las tarjetas que implementan cada parte. Este documen
 | DB-03 · Conceder y revocar | S3-06 | Conceder acceso a un contador, revocarlo y volver a consultar. | Solo cuenta la autorización activa. |
 | DB-04 · Aislamiento | S4-03 y S5-01 | La cuenta A crea un movimiento y la cuenta B lo pide por su id. | B recibe 404 y la fila sigue intacta. |
 | DB-05 · Salud sin base | S3-05 | Arrancar la API con una `DATABASE_URL` inalcanzable y pedir `GET /api/health`. | Responde 503 sin mostrar la cadena de conexión. |
+| DB-06 · Códigos de recuperación | S4-19 | Guardar un código, pedir otro, fallar 6 veces, completar el cambio dos veces y borrar la cuenta. | Queda un solo código; los intentos paran en 5; el segundo cambio no hace nada; las sesiones quedan cerradas; borrar la cuenta borra sus códigos. |
 
 ## 6. Pendientes fuera del repositorio
 

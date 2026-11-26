@@ -19,6 +19,11 @@ function createMemoryStore({ now = () => new Date() } = {}) {
    * con su `revokedAt`, como historial.
    */
   const grantsById = new Map();
+  /**
+   * Código de recuperación vigente por cuenta (S4-19), como la tabla
+   * `password_resets`: pedir otro reemplaza al anterior.
+   */
+  const resetsByUser = new Map();
 
   /** Permiso vigente (`revokedAt` nulo) de esa pareja, o `undefined`. */
   const activeGrant = (userId, accountantId) =>
@@ -146,6 +151,64 @@ function createMemoryStore({ now = () => new Date() } = {}) {
       const grant = grantsById.get(grantId);
       if (!grant || grant.userId !== userId || grant.revokedAt !== null) return false;
       grant.revokedAt = now().toISOString();
+      return true;
+    },
+
+    /**
+     * Guarda el código de recuperación de `userId` (S4-19) y borra los
+     * anteriores. Solo recibe el hash del código.
+     */
+    async createPasswordReset({ userId, codeHash, expiresAt }) {
+      const reset = {
+        id: randomUUID(),
+        userId,
+        codeHash,
+        createdAt: now().toISOString(),
+        expiresAt,
+        attempts: 0,
+        usedAt: null,
+      };
+      resetsByUser.set(userId, reset);
+      return { ...reset };
+    },
+
+    /** Código de recuperación más reciente de `userId`, o `null`. */
+    async findLatestPasswordReset(userId) {
+      const reset = resetsByUser.get(userId);
+      return reset ? { ...reset } : null;
+    },
+
+    /**
+     * Suma un intento fallido al código `resetId` si sigue sin usar y
+     * tiene menos de 5. Devuelve los intentos, o `null` si no lo sumó.
+     */
+    async recordPasswordResetFailure(resetId) {
+      for (const reset of resetsByUser.values()) {
+        if (reset.id === resetId && reset.usedAt === null && reset.attempts < 5) {
+          reset.attempts += 1;
+          return reset.attempts;
+        }
+      }
+      return null;
+    },
+
+    /**
+     * Cambia la contraseña con el código `resetId` (S4-19), todo junto:
+     * marca el código usado, guarda `passwordHash` y cierra todas las
+     * sesiones de `userId`. Devuelve `false`, sin cambiar nada, si el
+     * código ya se usó o ya no es el vigente.
+     */
+    async completePasswordReset({ resetId, userId, passwordHash }) {
+      const reset = resetsByUser.get(userId);
+      if (!reset || reset.id !== resetId || reset.usedAt !== null) return false;
+      const user = [...usersByEmail.values()].find((u) => u.id === userId);
+      if (!user) return false;
+      const at = now().toISOString();
+      reset.usedAt = at;
+      user.passwordHash = passwordHash;
+      for (const session of sessionsByTokenHash.values()) {
+        if (session.userId === userId && session.revokedAt === null) session.revokedAt = at;
+      }
       return true;
     },
 
