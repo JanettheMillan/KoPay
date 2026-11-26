@@ -2,13 +2,32 @@
 
 API Node.js de KoPay (Express 5). Expone la ruta de salud y el registro de cuentas. El inicio de sesión y la sincronización se agregan en las siguientes tarjetas del Sprint 3.
 
-**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-07 (registro), S3-08 (credenciales).
+**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales).
 
 ## 1. Requisitos
 
 - Node.js 20 o más reciente (`node -v`).
 - npm, que viene con Node (`npm -v`).
-- No necesita base de datos todavía: la capa de datos guarda en memoria.
+- Para `npm start` todavía no hace falta base: la API usa la capa en memoria. La contraseña ya se guarda como hash (S3-08); falta cambiar `server.js` a `createPgStore` (pendiente con S3-09).
+- Para `npm run migrate` y `npm run test:db`: PostgreSQL 16 en `DATABASE_URL` (S3-05). Acuerdos en [`docs/base-de-datos.md`](../docs/base-de-datos.md).
+
+### PostgreSQL local con Docker
+
+Una sola vez:
+
+```bash
+docker run -d --name kopay-pg -e POSTGRES_USER=kopay -e POSTGRES_PASSWORD=kopay \
+  -e POSTGRES_DB=kopay_test -p 5432:5432 postgres:16
+docker exec kopay-pg psql -U kopay -d kopay_test -c "CREATE DATABASE kopay;"
+```
+
+Después pon en `backend/.env` la línea `DATABASE_URL=postgres://kopay:kopay@localhost:5432/kopay` y crea las tablas:
+
+```bash
+npm run migrate      # aplica las migraciones pendientes; correrlo otra vez no hace nada
+```
+
+Para usar el branch `dev` de Neon, cambia solo `DATABASE_URL`. La cadena se comparte por mensaje privado, nunca en el repositorio.
 
 ## 2. Iniciar el servicio en local
 
@@ -83,7 +102,7 @@ Cuerpo JSON, igual en los dos casos:
 | `service` | texto | Siempre `"kopay-api"`. |
 | `version` | texto | Versión de `package.json`, por ejemplo `"0.1.0"`. |
 | `environment` | texto | `"development"`, `"test"` o `"production"`. |
-| `data.kind` | texto | Tipo de capa de datos; hoy `"memory"`. |
+| `data.kind` | texto | Tipo de capa de datos: hoy `"memory"`; `"postgres"` cuando el servidor use la base (pendiente con S3-09). |
 | `data.ok` | booleano | `true` si la capa de datos respondió. |
 | `timestamp` | texto | Fecha y hora del servidor en ISO 8601 (UTC). |
 
@@ -138,6 +157,12 @@ npm test
 
 Corre con Jest y supertest, sin abrir puertos fijos ni necesitar base de datos.
 
+Las pruebas de migraciones (`test/db/`) sí necesitan PostgreSQL y **borran el esquema** de la base que reciben, así que solo aceptan una base cuyo nombre contenga `test`:
+
+```bash
+DATABASE_URL=postgres://kopay:kopay@localhost:5432/kopay_test npm run test:db
+```
+
 ## 7. Problemas comunes
 
 | Mensaje | Qué hacer |
@@ -158,8 +183,10 @@ backend/
 │   ├── config/           variables de entorno por ambiente
 │   ├── routes/           rutas bajo /api
 │   ├── services/         lógica (hoy, el estado de salud)
-│   ├── data/             capa de datos (hoy en memoria)
+│   ├── data/             capa de datos: PostgreSQL, memoria y migraciones
 │   └── middleware/       404 y manejo de errores
-├── test/                 pruebas con Jest y supertest
+├── migrations/           migraciones SQL numeradas (NNN_nombre.sql)
+├── scripts/migrate.js    `npm run migrate`
+├── test/                 pruebas con Jest y supertest (test/db/ necesita PostgreSQL)
 └── .env.example          plantilla de configuración
 ```

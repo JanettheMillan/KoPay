@@ -63,7 +63,9 @@ Convenciones: llaves `uuid` con `gen_random_uuid()`; dinero en `numeric(14,2)`. 
 - Un script `npm run migrate` (S3-05) las aplica en orden, cada una en su propia transacción, y anota el número en la tabla `schema_migrations`. Si una falla, se deshace completa y el script termina con error.
 - **Una migración aplicada no se edita.** Para cambiar algo, se agrega una migración nueva.
 - Cada migración va en el PR de la tarjeta que la necesita, con su prueba.
-- Las pruebas de `npm test` parten de una base vacía: borran el esquema, corren todas las migraciones y después ejecutan los casos.
+- Las pruebas de migraciones parten de una base vacía: borran el esquema, corren todas las migraciones y después ejecutan los casos. Están en `backend/test/db/` y se corren con `npm run test:db`; `npm test` no las incluye para poder correr sin base.
+
+> **Implementado en S3-05** ([#53](https://github.com/JanettheMillan/KoPay/issues/53)): `backend/migrations/001_users_roles_sessions.sql`, `backend/src/data/migrate.js`, `backend/src/data/pg-store.js` (misma interfaz que la memoria: `ping`, `createUser` y `findUserByEmail`, con `passwordHash`) y `npm run migrate`. DB-01, DB-02 y DB-05 tienen prueba. `npm start` sigue con la capa en memoria; S3-08 cambia a `createPgStore` en `server.js` cuando el registro guarde el hash.
 
 ## 5. Cómo se comprueba
 
