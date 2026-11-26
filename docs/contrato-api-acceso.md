@@ -158,6 +158,21 @@ Requiere `Authorization: Bearer <accessToken>`. Invalida la sesión en el servid
 
 Petición `{ "refreshToken": "<texto opaco>" }`. Responde igual que el login. Si el `refreshToken` no es válido o expiró, `401 UNAUTHENTICATED`. El detalle lo cierra S4-02 en este documento.
 
+### 3.6 `/api/accountants` · Contadores autorizados (HU-38, HU-41, S4-05)
+
+Requiere `Authorization: Bearer <accessToken>` de una cuenta `user`. Las reglas de quién autoriza y cómo se revoca están en [reglas-roles-contador.md](reglas-roles-contador.md), secciones 2 y 4. La cuenta sobre la que se actúa es siempre la de la sesión: un `userId` en el cuerpo se ignora.
+
+| Método y ruta | Éxito | Errores propios |
+| :--- | :--- | :--- |
+| `GET /api/accountants` | `200 { "grants": [{ "id", "accountant": { "id", "name", "email" }, "grantedAt" }] }`, solo vigentes, del más antiguo al más nuevo | — |
+| `POST /api/accountants` `{ "accountantEmail": "carla@conta.mx" }` | `201 { "grant" }`. Si ya había un permiso vigente con ese contador, `200` con el mismo permiso y no se crea otro. | `400 VALIDATION_FAILED` con `fields.accountantEmail`; `404 NOT_FOUND` "No hay un contador con ese correo" |
+| `DELETE /api/accountants/:grantId` | `204` sin cuerpo. Efecto inmediato. | `404 NOT_FOUND` "No encontramos ese permiso" si no existe, no es suyo o ya estaba revocado |
+
+- El correo se recorta y se pasa a minúsculas, igual que en el registro.
+- El `404` del `POST` es el mismo si el correo no existe o si es de una cuenta `user`, para no revelar qué correos tienen cuenta.
+- Sin sesión, `401 UNAUTHENTICATED`. Con una sesión de `accountant`, `403 FORBIDDEN` "No tienes permiso para esta operación": el contador no puede autorizarse ni revocar.
+- Revocar no borra el permiso: llena `revokedAt` y se conserva como historial. Autorizar de nuevo crea un permiso con otro `id`.
+
 ## 4. Resumen de rutas
 
 | Método y ruta | Sesión | Tarjeta | Éxito | Errores propios |
@@ -167,6 +182,9 @@ Petición `{ "refreshToken": "<texto opaco>" }`. Responde igual que el login. Si
 | `GET /api/auth/me` | Sí | S3-09 | `200 { user }` | `UNAUTHENTICATED` |
 | `POST /api/auth/logout` | Sí | S4-02 | `204` | — |
 | `POST /api/auth/refresh` | No | S4-02 | `200` igual que login | `UNAUTHENTICATED` |
+| `GET /api/accountants` | Sí, `user` | S4-05 | `200 { grants }` | `FORBIDDEN` |
+| `POST /api/accountants` | Sí, `user` | S4-05 | `201 { grant }` o `200` si ya estaba vigente | `VALIDATION_FAILED`, `NOT_FOUND`, `FORBIDDEN` |
+| `DELETE /api/accountants/:grantId` | Sí, `user` | S4-05 | `204` | `NOT_FOUND`, `FORBIDDEN` |
 
 ## 5. Casos de prueba del contrato
 

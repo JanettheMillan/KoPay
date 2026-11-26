@@ -1,6 +1,7 @@
 'use strict';
 
 const { Router } = require('express');
+const { accountantRoutes } = require('./accountants.routes');
 const { authRoutes } = require('./auth.routes');
 const { healthRoutes } = require('./health.routes');
 
@@ -12,6 +13,7 @@ function apiRoutes(services) {
   const router = Router();
   router.use('/health', healthRoutes(services));
   router.use('/auth', authRoutes(services));
+  router.use('/accountants', accountantRoutes(services));
   return router;
 }
 

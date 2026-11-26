@@ -84,6 +84,8 @@ Cada petición del contador a `/api/clients/:userId/...` pasa por tres pasos, en
 - Al pasar, deja `req.user = { id, role }` con el rol leído de la base.
 - El paso 3 (permiso vigente con el cliente) lo agrega S4-06 después de `rbac.readClients()`.
 
+**Conceder y revocar (S4-05):** `backend/src/services/accountant-access.service.js` y `backend/src/routes/accountants.routes.js`. Las rutas finales están en [contrato-api-acceso.md](contrato-api-acceso.md), sección 3.6. Para el paso 3, S4-06 usa `accountantAccessService.hasAccess({ userId, accountantId })`, que consulta el permiso vigente en cada petición, sin caché. Hoy los permisos se guardan en la capa de datos en memoria; cuando S3-06 cree la tabla `accountant_access`, la capa de PostgreSQL agrega los mismos métodos (`createGrant`, `listActiveGrantsByUser`, `findActiveGrant`, `revokeGrant`, `listGrantsByUser`) sin cambiar el servicio.
+
 ## 6. Esquema para S3-06
 
 Tabla `accountant_access` (nombre acordado en [base-de-datos.md](base-de-datos.md), S3-04):
