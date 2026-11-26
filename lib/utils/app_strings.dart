@@ -120,6 +120,11 @@ class AppStrings {
     required this.deleteIncomeTitle,
     required this.incomeDeleted,
     required this.deleteRecordBody,
+    required this.loginTitle,
+    required this.loginSubtitle,
+    required this.signIn,
+    required this.noAccount,
+    required this.sessionExpiredNotice,
     required this.registerTitle,
     required this.registerSubtitle,
     required this.nameLabel,
@@ -260,6 +265,14 @@ class AppStrings {
   final String deleteIncomeTitle;
   final String incomeDeleted;
   final String deleteRecordBody;
+
+  // Iniciar sesión (S3-11). Los errores de cada campo vienen del contrato
+  // y están en español (AuthValidators).
+  final String loginTitle;
+  final String loginSubtitle;
+  final String signIn;
+  final String noAccount;
+  final String sessionExpiredNotice;
   // Crear cuenta (S3-10). Los errores de cada campo vienen del contrato
   // de la API y están en español (AuthValidators).
   final String registerTitle;
@@ -395,6 +408,11 @@ class AppStrings {
     incomeDeleted: 'Ingreso eliminado',
     deleteRecordBody:
         'Se eliminará "{a}" y se recalculará el resumen. Esta acción no se puede deshacer.',
+    loginTitle: 'Iniciar sesión',
+    loginSubtitle: 'Entra a tu cuenta de KoPay.',
+    signIn: 'Entrar',
+    noAccount: '¿No tienes cuenta? Crea una',
+    sessionExpiredNotice: 'Tu sesión terminó. Inicia sesión otra vez.',
     registerTitle: 'Crear cuenta',
     registerSubtitle: 'Guarda tus finanzas en tu cuenta de KoPay.',
     nameLabel: 'Nombre',
@@ -524,6 +542,11 @@ class AppStrings {
     incomeDeleted: 'Income deleted',
     deleteRecordBody:
         '"{a}" will be deleted and the summary recalculated. This cannot be undone.',
+    loginTitle: 'Sign in',
+    loginSubtitle: 'Sign in to your KoPay account.',
+    signIn: 'Sign in',
+    noAccount: 'No account yet? Create one',
+    sessionExpiredNotice: 'Your session ended. Please sign in again.',
     registerTitle: 'Create account',
     registerSubtitle: 'Keep your finances in your KoPay account.',
     nameLabel: 'Name',
