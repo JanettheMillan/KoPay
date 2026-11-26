@@ -31,8 +31,8 @@ class CardsSection extends StatelessWidget {
 
     return Padding(
       key: const Key('home-cards'),
-      // Espacio abajo para que el botón + no tape la última fila.
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 72),
+      // Deudas va debajo y deja el espacio para el botón + (S2-14).
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
