@@ -210,4 +210,14 @@ describe('Correo de recuperación (S4-19)', () => {
     expect(resumen).not.toContain('kopay@example.com');
     expect(resumen).not.toContain('smtp.example.com');
   });
+  test('SEG-08 · HU-34 · S4-13 · en producción CORS_ORIGIN no puede ser *', () => {
+    for (const origin of ['*', ' * ', 'https://kopay.example.com,*']) {
+      expect(() => loadConfig({ ...PROD, CORS_ORIGIN: origin })).toThrow(
+        'CORS_ORIGIN no puede ser * en producción',
+      );
+    }
+    expect(loadConfig(PROD).corsOrigin).toBe('https://kopay.example.com');
+    // En desarrollo y pruebas * sigue permitido.
+    expect(loadConfig({}).corsOrigin).toBe('*');
+  });
 });

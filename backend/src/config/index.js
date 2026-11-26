@@ -108,7 +108,12 @@ function loadConfig(env = process.env) {
         `JWT_SECRET debe tener al menos ${MIN_SECRET_LENGTH} caracteres`,
       );
     }
-    if (!corsOrigin) problems.push('falta CORS_ORIGIN');
+    if (!corsOrigin) {
+      problems.push('falta CORS_ORIGIN');
+    } else if (corsOrigin.split(',').some((o) => o.trim() === '*')) {
+      // S4-13: en producción no se permite cualquier origen.
+      problems.push('CORS_ORIGIN no puede ser * en producción');
+    }
     for (const variable of SMTP_VARIABLES) {
       if (read(env, variable) === undefined) problems.push(`falta ${variable}`);
     }

@@ -6,6 +6,7 @@ const {
   validateLogin,
   validateRegistration,
 } = require('../validators/auth.validator');
+const { createLoginThrottle } = require('./login-throttle');
 const passwords = require('./password.service');
 
 /** Rol de toda cuenta creada desde la app. Los contadores se crean fuera (S3-14). */
@@ -19,11 +20,20 @@ function publicUser({ id, name, email, role, createdAt }) {
 /** Mensaje igual para correo inexistente y contraseña incorrecta. */
 const INVALID_CREDENTIALS_MESSAGE = 'Correo o contraseña incorrectos';
 
+/** Login con demasiados intentos fallidos (S4-13, contrato §3.2). */
+const LOGIN_TOO_MANY_MESSAGE =
+  'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.';
+
 /**
  * Cuentas de usuario (HU-30, HU-31). `passwordService` se puede
  * reemplazar en las pruebas. `sessionService` abre la sesión del login.
  */
-function createAuthService({ store, passwordService = passwords, sessionService }) {
+function createAuthService({
+  store,
+  passwordService = passwords,
+  sessionService,
+  loginThrottle = createLoginThrottle(),
+}) {
   // Hash de relleno para comparar cuando el correo no existe, así las
   // dos respuestas tardan lo mismo (contrato, sección 3.2). Se calcula
   // una sola vez, la primera vez que se necesita.
@@ -82,7 +92,16 @@ function createAuthService({ store, passwordService = passwords, sessionService 
       if (Object.keys(fields).length > 0) {
         throw new HttpError(400, 'Revisa los datos marcados', { fields });
       }
+      // S4-13: el intento se reserva antes de comparar la contraseña, para
+      // que muchas peticiones en paralelo no pasen del máximo.
+      const key = normalizeEmail(value.email);
+      if (!loginThrottle.claim(key)) {
+        throw new HttpError(429, LOGIN_TOO_MANY_MESSAGE, {
+          code: ERROR_CODES.TOO_MANY_ATTEMPTS,
+        });
+      }
       const user = await this.verifyCredentials(value.email, value.password);
+      if (user) loginThrottle.succeed(key);
       if (!user) {
         throw new HttpError(401, INVALID_CREDENTIALS_MESSAGE, {
           code: ERROR_CODES.INVALID_CREDENTIALS,
@@ -137,4 +156,10 @@ function emailTaken() {
   });
 }
 
-module.exports = { DEFAULT_ROLE, INVALID_CREDENTIALS_MESSAGE, createAuthService, publicUser };
+module.exports = {
+  DEFAULT_ROLE,
+  INVALID_CREDENTIALS_MESSAGE,
+  LOGIN_TOO_MANY_MESSAGE,
+  createAuthService,
+  publicUser,
+};

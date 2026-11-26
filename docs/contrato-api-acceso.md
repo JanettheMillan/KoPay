@@ -52,7 +52,7 @@ Cualquier respuesta con estado `4xx` o `5xx` tiene este cuerpo:
 | 409 | `EMAIL_TAKEN` | Ya hay una cuenta con ese correo. | Marca el campo correo con `error`. |
 | 409 | `VERSION_CONFLICT` | El registro cambió en otro dispositivo después de que la app lo leyó (envía una `version` vieja). | Recarga el registro y avisa; no sobrescribe. |
 | 413 | `PAYLOAD_TOO_LARGE` | El cuerpo pasa de 100 kB. | Muestra `error`. |
-| 429 | `TOO_MANY_ATTEMPTS` | Código de recuperación con 5 intentos fallidos (sección 3.8). En el login sigue reservado: se implementa cuando se autorice la librería. | Muestra `error` y desactiva el botón un momento. En recuperación, regresa a pedir un código nuevo. |
+| 429 | `TOO_MANY_ATTEMPTS` | Código de recuperación con 5 intentos fallidos (sección 3.8), o login con 10 intentos fallidos del mismo correo en 15 minutos (sección 3.2, S4-13). | Muestra `error` y desactiva el botón un momento. En recuperación, regresa a pedir un código nuevo. |
 | 500 | `INTERNAL` | Error inesperado del servidor. | Muestra `error` y permite reintentar. |
 | 503 | `UNAVAILABLE` | La base de datos u otro servicio no responde. | Muestra `error` y permite reintentar. |
 
@@ -141,7 +141,9 @@ Respuesta `200 OK`:
 - `user.role` es `user` o `accountant`. Flutter abre la vista de usuario o la de contador según este valor (HU-37).
 - Desde S4-02 la respuesta agrega `refreshToken` (texto opaco) y `refreshExpiresIn` (2592000 segundos, 30 días). Flutter guarda los dos y debe aceptar la respuesta con o sin ellos.
 
-Errores: `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `429 TOO_MANY_ATTEMPTS` (reservado), `500`, `503`.
+- **Límite de intentos (S4-13):** después de 10 intentos fallidos con el mismo correo en 15 minutos, responde `429 TOO_MANY_ATTEMPTS` con `"Demasiados intentos. Espera unos minutos e inténtalo de nuevo."`, aunque la contraseña sea correcta, hasta que termine la ventana. Cuenta igual si el correo no existe, así que no revela qué correos tienen cuenta. Un login correcto reinicia el contador. Detalle en `docs/revision-seguridad-s4-13.md`.
+
+Errores: `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `429 TOO_MANY_ATTEMPTS`, `500`, `503`.
 
 ### 3.3 `GET /api/auth/me` · Sesión actual (HU-31, HU-34, S3-09)
 

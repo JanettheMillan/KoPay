@@ -214,7 +214,7 @@ curl -i http://localhost:3000/api/health
 | `PORT` | Puerto HTTP (3000 si está vacío). | Lo da el servicio |
 | `DATABASE_URL` | Conexión a PostgreSQL. | Obligatoria. En Railway es la referencia `${{Postgres.DATABASE_URL}}` (#189) |
 | `JWT_SECRET` | Firma de los tokens. | Obligatoria, de 32 caracteres o más y distinta del ejemplo |
-| `CORS_ORIGIN` | Orígenes permitidos. | Obligatoria. *Pendiente:* hoy la API acepta `*` también en producción (observación de #157); no se debe usar `*` y se revisa en S4-13 (#79) |
+| `CORS_ORIGIN` | Orígenes permitidos. | Obligatoria. En producción no puede ser `*`: la API no arranca (S4-13, #79). Se pone la URL pública de la API |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Correo de recuperación. | Obligatorias. En dev y test no se envía nada: el código sale en la consola |
 | `BANXICO_TOKEN` | Tipo de cambio FIX. | Obligatoria (64 caracteres hexadecimales) |
 
