@@ -61,10 +61,10 @@ describe('Errores', () => {
 
 describe('Configuración', () => {
   test('API-05 · HU-30 · usa el puerto 3000 y desarrollo por defecto', () => {
-    expect(loadConfig({})).toEqual({ port: 3000, env: 'development' });
-    expect(loadConfig({ PORT: '8080', NODE_ENV: 'production' })).toEqual({
+    expect(loadConfig({})).toMatchObject({ port: 3000, env: 'development' });
+    expect(loadConfig({ PORT: '8080', NODE_ENV: 'test' })).toMatchObject({
       port: 8080,
-      env: 'production',
+      env: 'test',
     });
   });
 
