@@ -51,7 +51,7 @@ flowchart LR
 | Inicio | `MovementProvider` e `IncomeProvider` | `forMonth`, `expensesForMonth`, `entriesForMonth` y `totalForMonth` del mes elegido. |
 | Tarjetas (S2-13): sección de Inicio, formulario y detalle | `CardProvider` | `cards`, `add`, `update` y `delete` (lanzan `ValidationException` si la tarjeta no es válida), `byId`. `totalLimit`, `totalUsed` y `totalAvailable` quedan para el resumen. |
 | Deudas (S2-14): sección de Inicio, formulario y detalle | `DebtProvider` (S2-11) | `debts` (ordenadas por vencimiento), `add`, `update` y `delete` (lanzan `ValidationException` si la deuda no es válida), `byId`. El provider pone el estado: saldo cero es pagada. |
-| Pagos (S2-15): `PaySheet` desde el detalle de tarjeta o deuda | `CardProvider` y `DebtProvider` | `pay` (lanza `ValidationException` si el monto es cero o supera el saldo) y `paymentsOf`. Después del pago, la hoja recarga `MovementProvider`. Borrar una tarjeta o deuda conserva sus pagos en Movimientos y solo los desliga (`card_id` o `debt_id` en `NULL`). |
+| Pagos (S2-15): `PaySheet` desde el detalle de tarjeta o deuda | `CardProvider` y `DebtProvider` | `pay` (lanza `ValidationException` si el monto es cero o supera el saldo) y `paymentsOf`. Después del pago, la hoja recarga `MovementProvider`. Borrar una tarjeta o deuda conserva sus pagos en Movimientos y solo los desliga (`card_id` o `debt_id` en `NULL`). Anular un pago (D-10) se hace desde la lista `PaymentsList` del detalle con `cancelPayment` del provider, que borra el pago y devuelve el saldo. |
 | Categorías | `CategoryProvider` | `search`, `validate`, `add`, `rename`, `remove`. |
 | Ajustes | `SettingsProvider` | `setCurrency` y `setLanguage`. Cambian `FormatUtils` y `AppStrings` en toda la app. |
 | Importar o borrar datos | `DatabaseHelper` directo | `replaceFinancialData` y `deleteFinancialData`; después se llama `load()` en cada proveedor. |
@@ -94,6 +94,13 @@ Un pago de tarjeta o de deuda sigue otro camino:
 2. En la misma transacción descuenta el saldo de la tarjeta o la deuda. Si el saldo de la deuda llega a cero, la deuda pasa a `paid`.
 3. Los importes se comparan y restan en **centavos enteros** (D-06, [#153](https://github.com/JanettheMillan/KoPay/issues/153)).
 4. Si algo falla, no cambia nada.
+
+Anular un pago (D-10, [#207](https://github.com/JanettheMillan/KoPay/issues/207)) recorre el camino inverso:
+1. `cancelPayment` lee el movimiento y comprueba que sea `type = payment` y que siga ligado a su tarjeta o deuda.
+2. En **una transacción** devuelve el importe al saldo usado de la tarjeta o al saldo restante de la deuda; si la deuda deja de estar en cero, vuelve a `pending`.
+3. Borra el movimiento de pago.
+4. Si algo falla, SQLite revierte: no queda el pago borrado con el saldo sin regresar.
+5. Se ofrece solo en el detalle de la tarjeta o deuda, no en Movimientos.
 
 ## 5. Esquema de datos
 
@@ -171,7 +178,8 @@ Cada tarjeta que agregue una tabla sube `DatabaseHelper.version` y añade su pas
 
 **Pendientes del esquema para el Sprint 2:**
 - `expensesForMonth` todavía cuenta los pagos como gastos. S2-12 y S2-15 deben separarlos con `Movement.isPayment`.
-- Borrar o editar un pago desde Movimientos no restaura el saldo de la tarjeta o la deuda (S2-15).
+
+**Anular pagos (D-10):** un pago se anula desde el detalle de su tarjeta o deuda y eso sí restaura el saldo en la misma transacción ([#207](https://github.com/JanettheMillan/KoPay/issues/207)). Borrarlo o editarlo desde Movimientos no restaura el saldo, por eso la hoja de movimiento no ofrece Eliminar para un pago. Cómo anular un pago en la API queda pendiente de definir ([#211](https://github.com/JanettheMillan/KoPay/issues/211)).
 
 ## 6. Arquitectura objetivo: vista de usuario y vista de contador
 

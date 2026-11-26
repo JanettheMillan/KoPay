@@ -112,6 +112,21 @@ class DebtProvider extends ChangeNotifier {
     return payment;
   }
 
+  /// Anula el pago [paymentId] de la deuda (D-10).
+  ///
+  /// Borra el movimiento de tipo `payment` y devuelve su importe al saldo
+  /// restante en una sola transacción. Si el saldo vuelve a ser mayor que
+  /// cero, la deuda pasa a pendiente (HU-21). Después recarga las deudas.
+  /// El pago también es un movimiento: quien lo anula debe recargar
+  /// `MovementProvider`.
+  ///
+  /// Lanza [ArgumentError] si el pago no existe o ya no está ligado a su
+  /// deuda. En ese caso no cambia nada.
+  Future<void> cancelPayment(int paymentId) async {
+    await _db.cancelPayment(paymentId);
+    await _reload();
+  }
+
   /// Pagos registrados a la deuda [debtId], del más reciente al más
   /// antiguo.
   Future<List<Movement>> paymentsOf(int debtId) => _db.getDebtPayments(debtId);

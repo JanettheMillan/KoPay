@@ -44,7 +44,7 @@ Salida real: `00:01 +3 ~1: All tests passed!` (3 aprobadas, 1 omitida).
 - **Efecto:** el usuario no puede corregir un movimiento equivocado desde la app; solo puede editar sus datos.
 - **Propuesta:** agregar en la hoja de edición un botón "Eliminar" con confirmación (`¿Eliminar movimiento?`), usar `MovementProvider.delete`, cerrar la hoja, avisar "Movimiento eliminado" y refrescar Inicio y Movimientos.
 - **Seguimiento:** [#185](https://github.com/JanettheMillan/KoPay/issues/185) (etiqueta `bug`, asignado a `JanettheMillan`).
-- **Corrección (#185):** la hoja "Editar movimiento" y la de "Editar ingreso" tienen **Eliminar**, con confirmación. Cancelar conserva el registro y la hoja sigue abierta. Confirmar lo borra con el provider, cierra la hoja, avisa "Movimiento eliminado" o "Ingreso eliminado", y Inicio y Movimientos se actualizan. Un pago de tarjeta o deuda no ofrece Eliminar, porque hoy no devolvería el saldo (pendiente anotado en #18).
+- **Corrección (#185):** la hoja "Editar movimiento" y la de "Editar ingreso" tienen **Eliminar**, con confirmación. Cancelar conserva el registro y la hoja sigue abierta. Confirmar lo borra con el provider, cierra la hoja, avisa "Movimiento eliminado" o "Ingreso eliminado", y Inicio y Movimientos se actualizan. Un pago de tarjeta o deuda no ofrece Eliminar aquí; desde D-10 ([#207](https://github.com/JanettheMillan/KoPay/issues/207)) se anula en la lista **Pagos** del detalle de su tarjeta o deuda, que sí devuelve el saldo.
 
 ### Reejecución tras corregir D-08
 

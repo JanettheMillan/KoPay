@@ -113,6 +113,11 @@ class AppStrings {
     required this.noPayments,
     required this.nothingToPay,
     required this.paymentsKept,
+    required this.cancelPayment,
+    required this.cancelPaymentTitle,
+    required this.cancelPaymentBody,
+    required this.paymentCanceled,
+    required this.cancelPaymentError,
     required this.deleteMovement,
     required this.deleteMovementTitle,
     required this.movementDeleted,
@@ -273,6 +278,13 @@ class AppStrings {
   final String noPayments;
   final String nothingToPay;
   final String paymentsKept;
+
+  // Anular un pago y devolver el saldo (D-10, HU-16, HU-06).
+  final String cancelPayment;
+  final String cancelPaymentTitle;
+  final String cancelPaymentBody;
+  final String paymentCanceled;
+  final String cancelPaymentError;
 
   // Eliminar un movimiento o ingreso desde su hoja de edición (#185, HU-06).
   final String deleteMovement;
@@ -435,6 +447,11 @@ class AppStrings {
     noPayments: 'Sin pagos registrados.',
     nothingToPay: 'No hay saldo por pagar.',
     paymentsKept: 'Sus pagos se conservan en Movimientos.',
+    cancelPayment: 'Anular pago',
+    cancelPaymentTitle: '¿Anular este pago?',
+    cancelPaymentBody: 'El saldo vuelve a como estaba.',
+    paymentCanceled: 'Pago anulado',
+    cancelPaymentError: 'No se pudo anular el pago. Intenta de nuevo.',
     deleteMovement: 'Eliminar movimiento',
     deleteMovementTitle: '¿Eliminar movimiento?',
     movementDeleted: 'Movimiento eliminado',
@@ -588,6 +605,11 @@ class AppStrings {
     noPayments: 'No payments yet.',
     nothingToPay: 'Nothing left to pay.',
     paymentsKept: 'Its payments stay in Activity.',
+    cancelPayment: 'Void payment',
+    cancelPaymentTitle: 'Void this payment?',
+    cancelPaymentBody: 'The balance goes back to what it was.',
+    paymentCanceled: 'Payment voided',
+    cancelPaymentError: 'Could not void the payment. Try again.',
     deleteMovement: 'Delete movement',
     deleteMovementTitle: 'Delete movement?',
     movementDeleted: 'Movement deleted',
