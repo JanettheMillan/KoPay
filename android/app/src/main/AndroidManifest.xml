@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- La app habla con la API Node (S4-07). En debug y profile ya venía en
+         sus manifiestos; aquí es para la APK de entrega. Sin tráfico http
+         en claro: en producción la API va por https. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="kopay"
         android:name="${applicationName}"
