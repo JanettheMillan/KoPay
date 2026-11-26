@@ -1,10 +1,11 @@
 /// Dirección de la API Node según el ambiente (S4-07).
 ///
-/// Se elige al compilar con `--dart-define`, nunca escrita en el código:
+/// Se elige al compilar, nunca escrita en el código. Los archivos por
+/// ambiente están en `config/` (ver `config/README.md`):
 ///
 /// ```
-/// flutter run --dart-define=API_URL=http://10.0.2.2:3000
-/// flutter build apk --dart-define=API_URL=https://api.kopay.example
+/// flutter run --dart-define-from-file=config/dev.json
+/// flutter build apk --release --dart-define-from-file=config/prod.json
 /// ```
 ///
 /// Sin `API_URL` se usa la de la computadora vista desde el emulador de

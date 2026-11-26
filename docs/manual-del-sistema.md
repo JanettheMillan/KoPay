@@ -179,8 +179,9 @@ Hoy es una **maqueta** (S2-19): Clientes autorizados → Resumen del mes → His
 
 ```bash
 flutter pub get
-flutter run                                         # emulador o teléfono conectado
-flutter run --dart-define=API_URL=http://10.0.2.2:3000
+flutter run                                             # emulador o teléfono conectado
+flutter run --dart-define-from-file=config/dev.json     # emulador de Android
+flutter run --dart-define-from-file=config/dev-local.json  # simulador de iOS, escritorio o web
 ```
 
 Sin `API_URL`, la app usa `http://10.0.2.2:3000`, que es la computadora vista desde el emulador de Android.
@@ -221,7 +222,7 @@ En producción, si falta algo, la API **no arranca** y dice qué falta. Los valo
 
 ### App
 
-La URL de la API se elige **al compilar** con `--dart-define=API_URL=…` (`lib/services/api_config.dart`). En producción debe ser `https`. La propuesta de archivos por ambiente (`config/dev.json`, `config/prod.json`) está en la sección 12.
+La URL de la API se elige **al compilar** con `--dart-define-from-file` y los archivos de `config/` (`dev.json`, `dev-local.json` y `prod.json`; ver `config/README.md`). Los lee `lib/services/api_config.dart`. En producción debe ser `https`. Ahí solo va la URL, nunca secretos.
 
 ### Bases por ambiente
 
@@ -314,7 +315,7 @@ Responsables: Rubén en S5-16 (#102), S5-18 (#104) y el despliegue (#189). Janet
 | 2 | **Identidad:** cambiar `applicationId` y `namespace` de `com.example.kopay` a uno propio (propuesta: `mx.edu.utez.kopay`, del dominio `utez.edu.mx` al revés) y `android:label` a `KoPay`, **antes** de la primera firma. | *Pendiente* |
 | 3 | **Firma:** generar el keystore con `keytool`, crear `android/key.properties` y usar `signingConfigs.release` en `android/app/build.gradle.kts`. Hoy el release se firma con la llave de debug. | *Pendiente* |
 | 4 | **Resguardo:** agregar `android/key.properties`, `*.jks` y `*.keystore` al `.gitignore`. Guardar el `.jks` fuera del repo, con respaldo, y las contraseñas en un gestor. Si se pierde la llave, no se pueden publicar actualizaciones. | *Pendiente* |
-| 5 | **Ambientes:** `config/dev.json` y `config/prod.json` con `API_URL` y compilar con `--dart-define-from-file`. En producción, `https`. | *Pendiente*: Cisco. La URL sale del despliegue en Railway (#189) |
+| 5 | **Ambientes:** `config/dev.json` y `config/prod.json` con `API_URL` y compilar con `--dart-define-from-file`. En producción, `https`. | *Hecho* por Cisco, **salvo el dominio**: `config/prod.json` espera el dominio https del despliegue en Railway (#189). |
 | 6 | **Build de producción:** `flutter build apk --release --dart-define-from-file=config/prod.json --obfuscate --split-debug-info=build/symbols`. Guardar `build/symbols`. | *Pendiente* |
 | 7 | **Instalación:** `adb install -r build/app/outputs/flutter-apk/app-release.apk`. Registrar en #102 la versión, el modelo y la versión de Android, con una captura. | *Pendiente* |
 
