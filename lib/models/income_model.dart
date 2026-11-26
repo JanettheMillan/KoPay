@@ -1,3 +1,4 @@
+import '../utils/date_utils.dart';
 import 'movement_model.dart';
 
 /// Ingreso recibido, por ejemplo el salario.
@@ -47,7 +48,7 @@ class Income {
       id: map['id'] as int?,
       name: map['name'] as String,
       amount: (map['amount'] as num).toDouble(),
-      date: DateTime.parse(map['date'] as String),
+      date: parseStoredDate(map['date'] as String),
       note: map['note'] as String?,
     );
   }

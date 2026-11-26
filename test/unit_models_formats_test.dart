@@ -6,6 +6,7 @@
 // está en la sección 8.1 del plan de pruebas.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kopay/models/debt_model.dart';
 import 'package:kopay/models/income_model.dart';
 import 'package:kopay/models/movement_model.dart';
 import 'package:kopay/utils/format_utils.dart';
@@ -187,16 +188,74 @@ void main() {
     });
 
     test(
-      'UT-33 · Fecha mal formada: día o mes fuera de rango',
+      'UT-33 · HU-08 · Fecha mal formada: día o mes fuera de rango (D-03)',
+      () {
+        for (final text in [
+          '2026-13-45',
+          '2026-02-30',
+          '2026-00-10',
+          '2026-04-31',
+        ]) {
+          expect(
+            () => Movement.fromMap(conFecha(text)),
+            throwsFormatException,
+            reason: text,
+          );
+        }
+      },
+    );
+
+    test('UT-33 · HU-08 · Fecha mal formada: hora fuera de rango (D-03)', () {
+      expect(
+        () => Movement.fromMap(conFecha('2026-10-08T25:00:00.000')),
+        throwsFormatException,
+      );
+    });
+
+    test('UT-33 · HU-02 · Ingreso con fecha imposible se rechaza (D-03)', () {
+      expect(
+        () => Income.fromMap({
+          'amount': 100,
+          'name': 'Nómina',
+          'date': '2026-02-30',
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test(
+      'UT-33 · HU-19 · Deuda con vencimiento imposible se rechaza (D-03)',
       () {
         expect(
-          () => Movement.fromMap(conFecha('2026-13-45')),
+          () => DebtModel.fromMap({
+            'name': 'Préstamo',
+            'monthly_payment': 500,
+            'remaining_balance': 3000,
+            'due_date': '2026-02-30',
+          }),
           throwsFormatException,
         );
       },
-      skip:
-          'Fallido, defecto D-03: DateTime.parse acepta 2026-13-45 y lo '
-          'convierte en 2027-02-14 (y 2026-02-30 en 2026-03-02) sin error.',
     );
+
+    test('UT-33 · HU-08 · Fechas válidas se leen igual que antes (D-03)', () {
+      final guardada = DateTime(2026, 10, 8, 14, 30, 5, 120);
+      expect(
+        Movement.fromMap(conFecha(guardada.toIso8601String())).date,
+        guardada,
+      );
+      expect(
+        Movement.fromMap(conFecha('2028-02-29')).date,
+        DateTime(2028, 2, 29),
+      );
+      expect(
+        Movement.fromMap(conFecha('2026-12-31')).date,
+        DateTime(2026, 12, 31),
+      );
+      expect(
+        Movement.fromMap(conFecha('2026-10-08T23:59:59Z')).date,
+        DateTime.utc(2026, 10, 8, 23, 59, 59),
+      );
+    });
   });
 }
