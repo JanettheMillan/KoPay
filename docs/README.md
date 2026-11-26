@@ -4,6 +4,7 @@ Este directorio reúne el alcance, diseño, planificación, historias, pruebas y
 
 ## Orden de lectura
 
+0. [Manual del sistema](manual-del-sistema.md): resumen de todo KoPay en un solo lugar (uso, instalación, API, datos, seguridad, pruebas y entrega), con enlaces a cada documento.
 1. [Plan del proyecto](plan-del-proyecto.md): producto completo, alcance, calendario y entregables.
 2. [Backlog de desarrollo](backlog-desarrollo-desde-cero.md) y [cronograma](cronograma-y-trazabilidad.md): 97 actividades de cinco sprints, desde la base Flutter hasta la vista de contador y el APK.
 3. [Arquitectura](arquitectura.md): módulos, flujo de datos, persistencia y patrones propuestos. La [navegación de usuario y contador](navegacion-usuario-contador.md) detalla las pantallas y recorridos de cada vista.
