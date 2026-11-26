@@ -5,7 +5,7 @@
 
 Este documento fija lo que la API Node.js recibe y responde en el registro y el inicio de sesión, y la forma de **todos** los errores de la API. Node (S3-07, S3-08, S3-09, S4-01, S4-02) lo implementa y Flutter (S3-10, S3-11, S3-12, S4-07, S4-08) lo consume. Si una tarjeta necesita cambiarlo, el cambio se hace primero aquí, en un PR propio, y se avisa a ambos lados.
 
-La forma de los errores (sección 2) ya está implementada en `backend/src/errors.js` y `backend/src/middleware/errors.js`. Las rutas de la sección 3 todavía no existen: las crean las tarjetas indicadas en cada una.
+La forma de los errores (sección 2) ya está implementada en `backend/src/errors.js` y `backend/src/middleware/errors.js`. `POST /api/auth/register` ya existe (S3-07). Las demás rutas de la sección 3 todavía no existen: las crean las tarjetas indicadas en cada una.
 
 ## 1. Reglas generales
 
@@ -170,7 +170,7 @@ Petición `{ "refreshToken": "<texto opaco>" }`. Responde igual que el login. Si
 
 ## 5. Casos de prueba del contrato
 
-Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js`. Los demás los automatiza la tarjeta que crea cada ruta, con el mismo identificador en el nombre de la prueba, y QA los toma en S3-16 y S3-18.
+Los casos CON-01 a CON-04 ya se ejecutan en `backend/test/contract.test.js` y CON-05 a CON-09 en `backend/test/register.test.js`. Los demás los automatiza la tarjeta que crea cada ruta, con el mismo identificador en el nombre de la prueba, y QA los toma en S3-16 y S3-18.
 
 | Caso | Historia | Tarjeta | Qué se envía | Resultado esperado |
 | :--- | :--- | :--- | :--- | :--- |

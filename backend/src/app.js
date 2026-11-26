@@ -6,6 +6,7 @@ const { loadConfig } = require('./config');
 const { createMemoryStore } = require('./data/store');
 const { errorHandler, notFound } = require('./middleware/errors');
 const { apiRoutes } = require('./routes');
+const { createAuthService } = require('./services/auth.service');
 const { createHealthService } = require('./services/health.service');
 
 /**
@@ -15,6 +16,7 @@ const { createHealthService } = require('./services/health.service');
 function createApp({ config = loadConfig(), store = createMemoryStore() } = {}) {
   const services = {
     healthService: createHealthService({ store, config }),
+    authService: createAuthService({ store }),
   };
 
   const app = express();
