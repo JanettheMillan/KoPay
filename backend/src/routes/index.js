@@ -3,6 +3,7 @@
 const { Router } = require('express');
 const { accountantRoutes } = require('./accountants.routes');
 const { authRoutes } = require('./auth.routes');
+const { clientRoutes } = require('./clients.routes');
 const { healthRoutes } = require('./health.routes');
 
 /**
@@ -14,6 +15,7 @@ function apiRoutes(services) {
   router.use('/health', healthRoutes(services));
   router.use('/auth', authRoutes(services));
   router.use('/accountants', accountantRoutes(services));
+  router.use('/clients', clientRoutes(services));
   return router;
 }
 

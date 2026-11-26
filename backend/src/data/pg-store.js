@@ -11,8 +11,8 @@ const { ERROR_CODES, HttpError } = require('../errors');
  * `findUserById` sobre la tabla `users`; `createSession` y
  * `findSessionByTokenHash` sobre `sessions` (S3-09), y los permisos de
  * contador sobre `accountant_access` (S3-06): `createGrant`,
- * `listActiveGrantsByUser`, `findActiveGrant`, `revokeGrant` y
- * `listGrantsByUser`, con la misma interfaz que S4-05 usa en memoria.
+ * `listActiveGrantsByUser`, `listActiveGrantsByAccountant`,
+ * `findActiveGrant`, `revokeGrant` y `listGrantsByUser`, con la misma interfaz que S4-05 usa en memoria.
  *
  * Diferencia con la memoria: aquí se guarda `passwordHash`, nunca la
  * contraseña. El servidor cambia a esta capa cuando S3-08 genere el hash.
@@ -231,6 +231,21 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
          WHERE user_id = $1 AND revoked_at IS NULL
          ORDER BY granted_at, id`,
         [userId],
+      );
+      return rows.map(toGrant);
+    },
+
+    /**
+     * Permisos vigentes que recibió `accountantId` (S4-06), del más
+     * antiguo al más nuevo. Es la lista de clientes del contador y usa el
+     * índice parcial `accountant_access_accountant_idx`.
+     */
+    async listActiveGrantsByAccountant(accountantId) {
+      const { rows } = await query(
+        `SELECT ${GRANT_COLUMNS} FROM accountant_access
+         WHERE accountant_id = $1 AND revoked_at IS NULL
+         ORDER BY granted_at, id`,
+        [accountantId],
       );
       return rows.map(toGrant);
     },
