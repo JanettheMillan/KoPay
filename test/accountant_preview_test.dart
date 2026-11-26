@@ -118,7 +118,10 @@ void main() {
         'mes', (tester) async {
       // Como en la app: datos y mes de hoy.
       final clients = accountantSampleClients();
-      await open(tester, AccountantClientsScreen(clients: clients));
+      await open(
+        tester,
+        AccountantClientsScreen(data: SampleAccountantData(clients)),
+      );
       await tester.tap(find.byKey(const Key('client-ejemplo-1')));
       await tester.pumpAndSettle();
 
@@ -144,7 +147,11 @@ void main() {
       final client = accountantSampleClients(now: now).first;
       await open(
         tester,
-        AccountantSummaryScreen(client: client, initialMonth: month),
+        AccountantSummaryScreen(
+          client: client.info,
+          data: SampleAccountantData([client]),
+          initialMonth: month,
+        ),
       );
       String income() =>
           tester.widget<Text>(find.byKey(const Key('summary-income'))).data!;
@@ -172,7 +179,11 @@ void main() {
       final client = accountantSampleClients(now: now).first;
       await open(
         tester,
-        AccountantSummaryScreen(client: client, initialMonth: month),
+        AccountantSummaryScreen(
+          client: client.info,
+          data: SampleAccountantData([client]),
+          initialMonth: month,
+        ),
       );
       await tester.tap(find.byKey(const Key('summary-prev-month')));
       await tester.pumpAndSettle();
@@ -209,7 +220,10 @@ void main() {
     testWidgets('UI-CON-05 · HU-39 · Sin clientes muestra el mensaje vacío', (
       tester,
     ) async {
-      await open(tester, const AccountantClientsScreen(clients: []));
+      await open(
+        tester,
+        AccountantClientsScreen(data: SampleAccountantData(const [])),
+      );
       expect(find.byKey(const Key('clients-empty')), findsOneWidget);
       expect(find.byKey(const Key('sample-data-banner')), findsOneWidget);
     });

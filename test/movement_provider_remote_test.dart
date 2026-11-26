@@ -6,6 +6,7 @@
 // SessionProvider con FakeAuthApi. El plan de pruebas no tiene casos de
 // esto; REM-01 a REM-13 son pruebas nuevas, anotadas en el PR.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +32,10 @@ class _FakeMovementsApi implements MovementsApi {
   Object? failWith;
   int calls = 0;
 
+  /// Si no es `null`, `create` espera a que se complete (para cambiar de
+  /// cuenta a media subida).
+  Completer<void>? holdCreate;
+
   /// Movimientos de la cuenta [email] en el servidor.
   Map<String, RemoteMovement> of(String email) => byAccount[email] ?? {};
 
@@ -55,6 +60,7 @@ class _FakeMovementsApi implements MovementsApi {
   @override
   Future<RemoteMovement> create(String token, Movement m) async {
     final store = await _account(token);
+    await holdCreate?.future;
     if (m.description.length > 60) {
       throw const ApiException(
         400,
@@ -396,6 +402,37 @@ void main() {
     expect(session.sessionExpired, isTrue);
     expect(movements.isRemote, isFalse);
     expect(movements.movements, isEmpty);
+  });
+
+  test('REM-15 · HU-34 · si se cambia de cuenta a media subida, no se sigue '
+      'con la anterior y la nueva sí se sincroniza', () async {
+    await movements.add(gasto('Uno', dia: 1));
+    await movements.add(gasto('Dos', dia: 2));
+    api.byAccount['beto@mail.com'] = {
+      'b1': (remoteId: 'b1', version: 1, movement: gasto('De Beto')),
+    };
+    api.holdCreate = Completer<void>();
+
+    // Ana entra y la subida de "Uno" se queda esperando.
+    await entrar('ana@mail.com');
+    // Cambia a Beto antes de que termine.
+    await salir();
+    await session.login(email: 'beto@mail.com', password: 'kopay2026');
+    movements.bindSession(session);
+    api.holdCreate!.complete();
+    api.holdCreate = null;
+    await settle();
+
+    // A Ana solo llegó lo que ya se estaba subiendo.
+    expect(api.of('ana@mail.com').values.map((r) => r.movement.description), [
+      'Uno',
+    ]);
+    expect(movements.isRemote, isTrue);
+    expect(movements.movements.map((m) => m.description), contains('De Beto'));
+    expect(
+      movements.movements.map((m) => m.description),
+      isNot(contains('Uno')),
+    );
   });
 
   test('REM-14 · HU-01 · una base versión 4 se migra a la actual sin perder '
