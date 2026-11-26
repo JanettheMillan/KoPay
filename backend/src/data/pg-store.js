@@ -5,8 +5,9 @@ const { Pool } = require('pg');
 /**
  * Capa de datos sobre PostgreSQL (S3-05). Tiene la misma interfaz que
  * `createMemoryStore`: `ping()`, así que la ruta de salud responde 503 si
- * la base no contesta (caso DB-05), y `createUser` y `findUserByEmail`
- * sobre la tabla `users`.
+ * la base no contesta (caso DB-05); `createUser`, `findUserByEmail` y
+ * `findUserById` sobre la tabla `users`, y `createSession` y
+ * `findSessionByTokenHash` sobre `sessions` (S3-09).
  *
  * Diferencia con la memoria: aquí se guarda `passwordHash`, nunca la
  * contraseña. El servidor cambia a esta capa cuando S3-08 genere el hash.
@@ -32,6 +33,18 @@ function toUser(row) {
     passwordHash: row.password_hash,
     role: row.role,
     createdAt: row.created_at.toISOString(),
+  };
+}
+
+/** Fila de `sessions` con los nombres que usan los servicios. */
+function toSession(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    tokenHash: row.token_hash,
+    createdAt: row.created_at.toISOString(),
+    expiresAt: row.expires_at.toISOString(),
+    revokedAt: row.revoked_at ? row.revoked_at.toISOString() : null,
   };
 }
 
@@ -81,6 +94,40 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
         [email],
       );
       return rows.length === 0 ? null : toUser(rows[0]);
+    },
+
+    /** Cuenta con ese `id`, o `null` si no existe. */
+    async findUserById(id) {
+      const { rows } = await pool.query(
+        `SELECT id, name, email, password_hash, role, created_at
+         FROM users WHERE id = $1`,
+        [id],
+      );
+      return rows.length === 0 ? null : toUser(rows[0]);
+    },
+
+    /**
+     * Abre una sesión (S3-09). Solo guarda el hash del token; el token en
+     * claro lo tiene únicamente la app.
+     */
+    async createSession({ userId, tokenHash, expiresAt }) {
+      const { rows } = await pool.query(
+        `INSERT INTO sessions (user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3)
+         RETURNING id, user_id, token_hash, created_at, expires_at, revoked_at`,
+        [userId, tokenHash, expiresAt],
+      );
+      return toSession(rows[0]);
+    },
+
+    /** Sesión con ese hash de token, o `null` si no existe. */
+    async findSessionByTokenHash(tokenHash) {
+      const { rows } = await pool.query(
+        `SELECT id, user_id, token_hash, created_at, expires_at, revoked_at
+         FROM sessions WHERE token_hash = $1`,
+        [tokenHash],
+      );
+      return rows.length === 0 ? null : toSession(rows[0]);
     },
 
     /** Cierra las conexiones (pruebas y apagado del servidor). */

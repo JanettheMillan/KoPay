@@ -1,8 +1,8 @@
 # KoPay API
 
-API Node.js de KoPay (Express 5). Expone la ruta de salud y el registro de cuentas. El inicio de sesión y la sincronización se agregan en las siguientes tarjetas del Sprint 3.
+API Node.js de KoPay (Express 5). Expone la ruta de salud, el registro de cuentas y el inicio de sesión. La sincronización se agrega en tarjetas siguientes.
 
-**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales).
+**Tarjetas:** S3-01 (estructura), S3-02 (ambientes y secretos), S3-03 (esta guía), S3-05 (PostgreSQL y migraciones), S3-07 (registro), S3-08 (credenciales), S3-09 (login).
 
 ## 1. Requisitos
 
@@ -130,6 +130,19 @@ curl -i -X POST http://localhost:3000/api/auth/register   -H "Content-Type: appl
 Las cuentas se guardan en memoria y se pierden al reiniciar el servicio, hasta que S3-05 conecte la base.
 
 La contraseña nunca se guarda en texto plano (S3-08): se guarda su hash con `scrypt`, que viene en Node, con una sal aleatoria por cuenta, en el formato `scrypt$N$r$p$sal$hash` (`src/services/password.service.js`). Al entrar se compara en tiempo constante. Si el correo no existe, también se compara contra un hash de relleno para que la respuesta tarde lo mismo.
+
+### Inicio de sesión (S3-09)
+
+`POST /api/auth/login` con `{ "email", "password" }` responde `200 { accessToken, tokenType, expiresIn, user }`. Si el correo no existe o la contraseña no coincide, responde siempre lo mismo: `401 INVALID_CREDENTIALS`. Si falta un campo, `400 VALIDATION_FAILED`.
+
+`GET /api/auth/me` con `Authorization: Bearer <accessToken>` responde `200 { user }`, o `401 UNAUTHENTICATED` sin token, con un token inválido o con uno vencido.
+
+```bash
+curl -s -X POST http://localhost:3000/api/auth/login   -H "Content-Type: application/json"   -d '{"email":"ana@mail.com","password":"kopay2026"}'
+curl -i http://localhost:3000/api/auth/me -H "Authorization: Bearer <accessToken>"
+```
+
+En el Sprint 3 el `accessToken` es texto aleatorio que vence a los 900 segundos. Solo se guarda su hash SHA-256 (`token_hash` de la tabla `sessions`). S4-01 lo cambia por un JWT sin cambiar la respuesta. El middleware `src/middleware/authenticate.js` deja `req.auth.userId` para el control de roles (S4-04).
 
 ## 5. Ambientes
 

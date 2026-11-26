@@ -11,6 +11,8 @@ function createMemoryStore({ now = () => new Date() } = {}) {
   const startedAt = new Date();
   /** Cuentas por correo normalizado, como el índice único de `users`. */
   const usersByEmail = new Map();
+  /** Sesiones por hash del token, como el índice único de `sessions`. */
+  const sessionsByTokenHash = new Map();
 
   return {
     kind: 'memory',
@@ -46,6 +48,37 @@ function createMemoryStore({ now = () => new Date() } = {}) {
     async findUserByEmail(email) {
       const user = usersByEmail.get(email);
       return user ? { ...user } : null;
+    },
+
+    /** Cuenta con ese `id`, o `null` si no existe. */
+    async findUserById(id) {
+      for (const user of usersByEmail.values()) {
+        if (user.id === id) return { ...user };
+      }
+      return null;
+    },
+
+    /**
+     * Abre una sesión (tabla `sessions`). Solo guarda el hash del token;
+     * el token en claro lo tiene únicamente la app.
+     */
+    async createSession({ userId, tokenHash, expiresAt }) {
+      const session = {
+        id: randomUUID(),
+        userId,
+        tokenHash,
+        createdAt: now().toISOString(),
+        expiresAt,
+        revokedAt: null,
+      };
+      sessionsByTokenHash.set(tokenHash, session);
+      return { ...session };
+    },
+
+    /** Sesión con ese hash de token, o `null` si no existe. */
+    async findSessionByTokenHash(tokenHash) {
+      const session = sessionsByTokenHash.get(tokenHash);
+      return session ? { ...session } : null;
     },
   };
 }

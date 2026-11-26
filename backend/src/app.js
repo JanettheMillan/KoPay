@@ -8,15 +8,18 @@ const { errorHandler, notFound } = require('./middleware/errors');
 const { apiRoutes } = require('./routes');
 const { createAuthService } = require('./services/auth.service');
 const { createHealthService } = require('./services/health.service');
+const { createSessionService } = require('./services/session.service');
 
 /**
  * Crea la aplicación Express sin abrir el puerto, para poder probarla
  * con supertest. Las dependencias se pueden reemplazar en las pruebas.
  */
-function createApp({ config = loadConfig(), store = createMemoryStore() } = {}) {
+function createApp({ config = loadConfig(), store = createMemoryStore(), now } = {}) {
+  const sessionService = createSessionService({ store, now });
   const services = {
     healthService: createHealthService({ store, config }),
-    authService: createAuthService({ store }),
+    sessionService,
+    authService: createAuthService({ store, sessionService }),
   };
 
   const app = express();
