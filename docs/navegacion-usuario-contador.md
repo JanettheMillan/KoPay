@@ -105,6 +105,8 @@ flowchart TD
 | Historial del cliente | `accountant_history_screen.dart` | HU-40, HU-42 | Gastos e ingresos del periodo elegido, del más reciente al más antiguo. Las filas no se pueden tocar para editar. |
 | Aviso de acceso retirado | Diálogo | HU-41 | Aparece si la API responde que el permiso ya no está vigente. Regresa a la lista de clientes, que se recarga. |
 
+> **Maqueta (S2-19, [#49](https://github.com/JanettheMillan/KoPay/issues/49)):** las tres pantallas ya existen con **datos de ejemplo** (`lib/data/accountant_sample_data.dart`) y un aviso fijo que dice que no están conectadas a cuentas reales. Mientras no haya sesión ni rol, se abren desde Ajustes → Contador → Vista de contador. S4-12 las mueve a la entrada por rol y agrega el cierre de sesión; S5-09 cambia los datos de ejemplo por los de la API.
+
 ### Reglas de la vista de contador
 
 - El mes elegido en el resumen se conserva al abrir el historial.
