@@ -173,6 +173,21 @@ Requiere `Authorization: Bearer <accessToken>` de una cuenta `user`. Las reglas 
 - Sin sesión, `401 UNAUTHENTICATED`. Con una sesión de `accountant`, `403 FORBIDDEN` "No tienes permiso para esta operación": el contador no puede autorizarse ni revocar.
 - Revocar no borra el permiso: llena `revokedAt` y se conserva como historial. Autorizar de nuevo crea un permiso con otro `id`.
 
+### 3.7 `/api/clients` · Consultas del contador (HU-39, HU-40, HU-42, S4-06)
+
+Requiere `Authorization: Bearer <accessToken>` de una cuenta `accountant`. Cada petición pasa por los tres pasos de [reglas-roles-contador.md](reglas-roles-contador.md), sección 5: sesión (`401`), rol y solo lectura (`403`) y, en las rutas de una persona, permiso vigente (`403`).
+
+| Método y ruta | Éxito | Errores propios |
+| :--- | :--- | :--- |
+| `GET /api/clients` | `200 { "clients": [{ "id", "name", "email", "grantedAt" }] }`, solo personas con permiso vigente, del permiso más antiguo al más nuevo | — |
+| `GET /api/clients/:userId` | `200 { "client": { "id", "name", "email", "grantedAt" } }` | `403 FORBIDDEN` "No tienes acceso a los datos de esta persona" |
+
+- El `403` de `:userId` es el mismo si la persona no autorizó a este contador, si revocó, si no existe o si el id está mal formado (ROL-08).
+- El permiso se consulta en cada petición: tras revocar, la siguiente consulta ya responde `403` y la persona sale de la lista.
+- Cualquier `POST`, `PUT`, `PATCH` o `DELETE` bajo `/api/clients` responde `403` con el mismo mensaje (HU-42).
+- Una cuenta `user` recibe `403` en todas estas rutas.
+- S5-03 agrega `GET /api/clients/:userId/summary` y `GET /api/clients/:userId/movements` (sección 7 de las reglas) detrás del mismo guardia.
+
 ## 4. Resumen de rutas
 
 | Método y ruta | Sesión | Tarjeta | Éxito | Errores propios |
@@ -185,6 +200,8 @@ Requiere `Authorization: Bearer <accessToken>` de una cuenta `user`. Las reglas 
 | `GET /api/accountants` | Sí, `user` | S4-05 | `200 { grants }` | `FORBIDDEN` |
 | `POST /api/accountants` | Sí, `user` | S4-05 | `201 { grant }` o `200` si ya estaba vigente | `VALIDATION_FAILED`, `NOT_FOUND`, `FORBIDDEN` |
 | `DELETE /api/accountants/:grantId` | Sí, `user` | S4-05 | `204` | `NOT_FOUND`, `FORBIDDEN` |
+| `GET /api/clients` | Sí, `accountant` | S4-06 | `200 { clients }` | `FORBIDDEN` |
+| `GET /api/clients/:userId` | Sí, `accountant` con permiso | S4-06 | `200 { client }` | `FORBIDDEN` |
 
 ## 5. Casos de prueba del contrato
 

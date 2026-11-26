@@ -4,7 +4,8 @@ const { HttpError } = require('../errors');
 const { normalizeEmail } = require('../validators/auth.validator');
 
 /**
- * Conceder y revocar el acceso de un contador (HU-38, HU-41, S4-05).
+ * Conceder y revocar el acceso de un contador (HU-38, HU-41, S4-05) y
+ * consultar a quién puede ver (HU-39, HU-40, S4-06).
  * Reglas en docs/reglas-roles-contador.md, secciones 2 y 4.
  */
 const MESSAGES = Object.freeze({
@@ -28,6 +29,11 @@ function publicGrant(grant, accountant) {
     accountant: { id: accountant.id, name: accountant.name, email: accountant.email },
     grantedAt: grant.grantedAt,
   };
+}
+
+/** Lo que ve el contador de un cliente: nombre, correo y fecha del permiso. */
+function publicClient(user, grant) {
+  return { id: user.id, name: user.name, email: user.email, grantedAt: grant.grantedAt };
 }
 
 /**
@@ -86,6 +92,34 @@ function createAccountantAccessService({ store }) {
         UUID_PATTERN.test(grantId) &&
         (await store.revokeGrant({ grantId, userId }));
       if (!revoked) throw new HttpError(404, MESSAGES.grantNotFound);
+    },
+
+    /**
+     * Personas que autorizaron a `accountantId` y siguen vigentes
+     * (`GET /api/clients`, HU-39, S4-06). Nunca devuelve sus finanzas.
+     */
+    async listClients(accountantId) {
+      const grants = await store.listActiveGrantsByAccountant(accountantId);
+      const result = [];
+      for (const grant of grants) {
+        const user = await store.findUserById(grant.userId);
+        // Si la cuenta de la persona se borró, su permiso ya no cuenta (sección 4.6).
+        if (user) result.push(publicClient(user, grant));
+      }
+      return result;
+    },
+
+    /**
+     * La persona `userId`, solo si `accountantId` tiene hoy un permiso
+     * vigente sobre ella; si no, `null`. Un id mal formado, una cuenta que
+     * no existe y una sin permiso dan lo mismo (sección 5, ROL-08).
+     */
+    async findClient({ userId, accountantId }) {
+      if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) return null;
+      const grant = await store.findActiveGrant({ userId, accountantId });
+      if (!grant) return null;
+      const user = await store.findUserById(userId);
+      return user ? publicClient(user, grant) : null;
     },
 
     /**

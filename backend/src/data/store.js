@@ -121,6 +121,17 @@ function createMemoryStore({ now = () => new Date() } = {}) {
         .map((g) => ({ ...g }));
     },
 
+    /**
+     * Permisos vigentes que recibió `accountantId` (S4-06), del más
+     * antiguo al más nuevo. Es la lista de clientes del contador.
+     */
+    async listActiveGrantsByAccountant(accountantId) {
+      return [...grantsById.values()]
+        .filter((g) => g.accountantId === accountantId && g.revokedAt === null)
+        .sort((a, b) => a.grantedAt.localeCompare(b.grantedAt))
+        .map((g) => ({ ...g }));
+    },
+
     /** Permiso vigente entre `userId` y `accountantId`, o `null`. */
     async findActiveGrant({ userId, accountantId }) {
       const grant = activeGrant(userId, accountantId);
