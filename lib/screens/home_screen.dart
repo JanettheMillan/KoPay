@@ -7,6 +7,7 @@ import '../providers/movement_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
+import '../widgets/cards_section.dart';
 import '../widgets/category_picker_sheet.dart';
 import '../widgets/move_row.dart';
 import 'movements_screen.dart' show HistoryEntry, buildHistory;
@@ -77,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onMonthChange: _changeMonth,
               ),
               _MovementsSection(moves: monthMoves),
+              const CardsSection(),
             ],
           ),
         ),

@@ -28,6 +28,10 @@ class AppStrings {
     required this.expenses,
     required this.movementsHeader,
     required this.noMovementsMonth,
+    required this.cardsHeader,
+    required this.noCards,
+    required this.addCard,
+    required this.cardAvailable,
     required this.emptyHistory,
     required this.incomeKind,
     required this.settingsTitle,
@@ -76,6 +80,14 @@ class AppStrings {
   final String expenses;
   final String movementsHeader;
   final String noMovementsMonth;
+
+  /// Sección de tarjetas en Inicio (S2-13).
+  final String cardsHeader;
+  final String noCards;
+  final String addCard;
+
+  /// Texto tras el crédito disponible de cada tarjeta.
+  final String cardAvailable;
   final String emptyHistory;
   final String incomeKind;
   final String settingsTitle;
@@ -129,6 +141,10 @@ class AppStrings {
     expenses: 'Gastos',
     movementsHeader: 'MOVIMIENTOS',
     noMovementsMonth: 'Sin movimientos este mes.',
+    cardsHeader: 'TARJETAS',
+    noCards: 'Aún no registras tarjetas.',
+    addCard: 'Agregar tarjeta',
+    cardAvailable: 'disponible',
     emptyHistory: 'Aún no hay movimientos.\nToca + para registrar uno.',
     incomeKind: 'ingreso',
     settingsTitle: 'Ajustes',
@@ -186,6 +202,10 @@ class AppStrings {
     expenses: 'Expenses',
     movementsHeader: 'ACTIVITY',
     noMovementsMonth: 'No activity this month.',
+    cardsHeader: 'CARDS',
+    noCards: 'No cards yet.',
+    addCard: 'Add card',
+    cardAvailable: 'available',
     emptyHistory: 'No activity yet.\nTap + to add one.',
     incomeKind: 'income',
     settingsTitle: 'Settings',
