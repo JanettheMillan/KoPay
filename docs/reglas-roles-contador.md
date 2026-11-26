@@ -130,7 +130,7 @@ Los automatiza la tarjeta indicada, con el identificador en el nombre de la prue
 | ROL-04 | HU-38 | S4-05 | Se autoriza dos veces al mismo contador | Un solo permiso vigente; la segunda respuesta es `200` |
 | ROL-05 | HU-38 | S4-11 | Se cancela el diálogo de consentimiento | No se llama a la API ni se crea el permiso |
 | ROL-06 | HU-39 | S4-06 | El contador A pide la lista de clientes | Solo las personas que autorizaron a A y siguen vigentes |
-| ROL-07 | HU-40 | S4-06 | El contador pide el resumen y los movimientos de un mes | Solo datos de esa persona y de ese mes |
+| ROL-07 | HU-40 | S5-03 | El contador pide el resumen y los movimientos de un mes | Solo datos de esa persona y de ese mes |
 | ROL-08 | HU-34 | S4-06 | El contador cambia `:userId` por el de una persona que no lo autorizó, o por uno inexistente | `403` en ambos casos, con el mismo cuerpo |
 | ROL-09 | HU-41 | S4-05, S4-06 | Se revoca y el contador repite la consulta | `403` y la persona ya no aparece en su lista |
 | ROL-10 | HU-41 | S4-05 | Se revoca y se vuelve a autorizar | Hay un permiso nuevo y el revocado conserva su `revoked_at` |
