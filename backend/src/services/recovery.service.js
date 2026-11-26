@@ -119,12 +119,16 @@ function createRecoveryService({
       const reset = await store.findLatestPasswordReset(user.id);
       if (!reset || reset.usedAt !== null) throw invalidCode();
       if (new Date(reset.expiresAt).getTime() <= now().getTime()) throw invalidCode();
-      if (reset.attempts >= MAX_ATTEMPTS) {
+      // Primero se aparta el intento, en una sola sentencia
+      // (`attempts < 5`), y después se compara. Si se comparara antes,
+      // varias peticiones en paralelo leerían `attempts` al mismo tiempo y
+      // podrían probar mucho más de 5 códigos (REC-15).
+      const attempt = await store.recordPasswordResetFailure(reset.id);
+      if (attempt === null) {
         throw new HttpError(429, TOO_MANY_MESSAGE, { code: ERROR_CODES.TOO_MANY_ATTEMPTS });
       }
 
       if (!sameHash(hashCode(user.id, value.code), reset.codeHash)) {
-        await store.recordPasswordResetFailure(reset.id);
         throw invalidCode();
       }
 

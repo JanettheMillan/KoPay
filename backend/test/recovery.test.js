@@ -11,7 +11,11 @@ const { loadConfig } = require('../src/config');
 const { createApp } = require('../src/app');
 const { createMemoryStore } = require('../src/data/store');
 const { createMailer } = require('../src/services/mail.service');
-const { RECOVER_MESSAGE, generateCode } = require('../src/services/recovery.service');
+const {
+  RECOVER_MESSAGE,
+  createRecoveryService,
+  generateCode,
+} = require('../src/services/recovery.service');
 const { MESSAGES } = require('../src/validators/auth.validator');
 
 const ana = { name: 'Ana López', email: 'ana@mail.com', password: 'kopay2026' };
@@ -403,5 +407,47 @@ describe('Código y correo', () => {
       mailer.sendRecoveryCode({ to: 'ana@mail.com', name: 'Ana', code: '000123', minutes: 15 }),
     ).resolves.toBeUndefined();
     expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('000123'));
+  });
+  test('REC-15 · HU-32 · intentos en paralelo no pasan del límite de 5', async () => {
+    const store = createMemoryStore();
+    let code = null;
+    const service = createRecoveryService({
+      store,
+      secret: 'secreto-de-prueba-para-rec-15-0123456789',
+      mailer: { sendRecoveryCode: async (m) => { code = m.code; } },
+      logger: { error() {} },
+    });
+    await store.createUser({ name: 'Ana', email: 'ana@mail.com', passwordHash: 'x'.repeat(30), role: 'user' });
+    await service.recover({ email: 'ana@mail.com' });
+    await flush();
+
+    // Las 40 peticiones leen el código vigente al mismo tiempo, antes de
+    // que alguna sume su intento: así se ve si el límite se puede saltar.
+    const TOTAL = 40;
+    const read = store.findLatestPasswordReset.bind(store);
+    let waiting = 0;
+    let release;
+    const barrier = new Promise((r) => { release = r; });
+    store.findLatestPasswordReset = async (id) => {
+      const reset = await read(id);
+      waiting += 1;
+      if (waiting === TOTAL) release();
+      await barrier;
+      return reset;
+    };
+
+    const otros = [...Array(TOTAL - 1)].map((_, i) =>
+      String((Number(code) + i + 1) % 1_000_000).padStart(6, '0'),
+    );
+    const results = await Promise.allSettled(
+      [...otros, code].map((c) =>
+        service.reset({ email: 'ana@mail.com', code: c, password: 'nueva2026' }),
+      ),
+    );
+    const status = results.map((r) => (r.status === 'fulfilled' ? 204 : r.reason.status));
+
+    expect(status.filter((s) => s === 400)).toHaveLength(5);
+    expect(status.filter((s) => s === 429)).toHaveLength(TOTAL - 5);
+    expect(status).not.toContain(204);
   });
 });
