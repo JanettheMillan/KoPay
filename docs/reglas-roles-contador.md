@@ -71,6 +71,19 @@ Cada petición del contador a `/api/clients/:userId/...` pasa por tres pasos, en
 - Los datos se filtran **siempre** por `owner = :userId` y por el mes pedido. Nunca se arma la consulta con un identificador que venga del cuerpo.
 - El mensaje de `403` es el mismo en los dos casos: "No tienes acceso a los datos de esta persona".
 
+**Implementación del paso 2 (S4-04):** `backend/src/middleware/rbac.js`. Se crea con `createRbac({ getUserRole })`, donde `getUserRole(userId)` lee el rol en la base y devuelve `null` si la cuenta ya no existe. Ofrece estos guardias:
+
+| Guardia | Se monta en | Deja pasar |
+| :--- | :--- | :--- |
+| `rbac.ownFinances()` | Rutas financieras propias (S4-03, S5-01 a S5-05) | Solo `user` |
+| `rbac.manageAccountants()` | `/api/accountants` (S4-05) | Solo `user` |
+| `rbac.readClients()` | `/api/clients` (S4-06) | Solo `accountant`, y solo `GET`. Cualquier escritura responde `403`. |
+
+- El guardia espera que la sesión (S4-01) deje el id en `req.auth.userId`.
+- Sin sesión, o con una cuenta borrada, responde `401`. Si la base no responde, `503 UNAVAILABLE`.
+- Al pasar, deja `req.user = { id, role }` con el rol leído de la base.
+- El paso 3 (permiso vigente con el cliente) lo agrega S4-06 después de `rbac.readClients()`.
+
 ## 6. Esquema para S3-06
 
 Tabla `accountant_access` (nombre acordado en [base-de-datos.md](base-de-datos.md), S3-04):
