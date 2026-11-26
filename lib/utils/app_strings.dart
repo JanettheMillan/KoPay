@@ -159,6 +159,8 @@ class AppStrings {
     required this.revokeBody,
     required this.accessRevoked,
     required this.retry,
+    required this.clientAccessRevoked,
+    required this.clientsLoadError,
   });
 
   final String navHome;
@@ -335,6 +337,12 @@ class AppStrings {
   final String accessRevoked;
   final String retry;
 
+  /// Aviso del contador cuando la persona le retiró el acceso (S5-09).
+  final String clientAccessRevoked;
+
+  /// La vista de contador no pudo leer la API (S5-09).
+  final String clientsLoadError;
+
   static const AppStrings es = AppStrings._(
     navHome: 'Inicio',
     navMovements: 'Movimientos',
@@ -496,6 +504,9 @@ class AppStrings {
     revokeBody: 'Desde este momento no podrá ver tu resumen ni tu historial.',
     accessRevoked: 'Acceso retirado',
     retry: 'Reintentar',
+    clientAccessRevoked:
+        '{a} ya no te da acceso a sus datos. Tu lista de clientes se actualizó.',
+    clientsLoadError: 'No se pudieron cargar los datos.',
   );
 
   static const AppStrings en = AppStrings._(
@@ -655,6 +666,9 @@ class AppStrings {
         'From now on they will not be able to see your summary or history.',
     accessRevoked: 'Access revoked',
     retry: 'Try again',
+    clientAccessRevoked:
+        '{a} no longer gives you access to their data. Your client list was updated.',
+    clientsLoadError: 'Could not load the data.',
   );
 
   /// Reemplaza `{a}`, `{b}`, `{c}`, `{d}` de [template] por [values].

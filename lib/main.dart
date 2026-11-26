@@ -17,6 +17,7 @@ import 'screens/session_gate.dart';
 import 'screens/settings_screen.dart';
 import 'services/accountants_api.dart';
 import 'services/auth_api.dart';
+import 'services/clients_api.dart';
 import 'services/http_auth_api.dart';
 import 'services/incomes_api.dart';
 import 'services/movements_api.dart';
@@ -49,6 +50,11 @@ void main() {
         Provider<AccountantsApi>(
           create: (_) => HttpAccountantsApi(),
           dispose: (_, api) => (api as HttpAccountantsApi).close(),
+        ),
+        // Consultas de la vista de contador (S5-09).
+        Provider<ClientsApi>(
+          create: (_) => HttpClientsApi(),
+          dispose: (_, api) => (api as HttpClientsApi).close(),
         ),
         // Sesión guardada en el dispositivo y renovación (S4-08). La
         // navegación con sesión (S3-12) decide qué pantalla abrir.

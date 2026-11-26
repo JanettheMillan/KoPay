@@ -109,6 +109,10 @@ class MovementProvider extends ChangeNotifier {
     final account = _accountId;
     try {
       for (final local in await _db.getLocalOnlyMovements()) {
+        // Se cambió de cuenta a media subida: no seguir con la anterior
+        // (nota de Rubén en #210 y #212) y sincronizar la nueva, que
+        // esperaba a esta.
+        if (account != _accountId) return await _sync();
         final RemoteMovement created;
         try {
           created = await _authorized((t) => _api!.create(t, local));
@@ -126,7 +130,7 @@ class MovementProvider extends ChangeNotifier {
       }
       final remote = await _authorized(_api!.list);
       // La sesión cambió mientras se leía: no mezclar cuentas.
-      if (account != _accountId) return;
+      if (account != _accountId) return await _sync();
       await _db.replaceRemoteMovements(
         remote.where((r) => !r.movement.isPayment).toList(),
       );

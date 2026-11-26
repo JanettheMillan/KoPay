@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kopay/data/accountant_sample_data.dart';
 import 'package:kopay/providers/session_provider.dart';
 import 'package:kopay/screens/accountant_clients_screen.dart';
 import 'package:kopay/services/auth_api.dart';
@@ -210,7 +211,7 @@ void main() {
       await montar(
         tester,
         AppScreen.accountantClients,
-        const AccountantClientsScreen(clients: []),
+        AccountantClientsScreen(data: SampleAccountantData(const [])),
       );
       await tester.pump();
       expect(find.text('negado → userHome'), findsOneWidget);
@@ -230,7 +231,9 @@ void main() {
             home: RoleGuard(
               screen: AppScreen.accountantClients,
               denied: negada,
-              child: const AccountantClientsScreen(clients: []),
+              child: AccountantClientsScreen(
+                data: SampleAccountantData(const []),
+              ),
             ),
           ),
         ),

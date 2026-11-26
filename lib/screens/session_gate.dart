@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/accountant_sample_data.dart';
 import '../providers/session_provider.dart';
+import '../services/accountant_data.dart';
+import '../services/clients_api.dart';
 import '../utils/app_colors.dart';
 import '../utils/route_policy.dart';
 import 'accountant_clients_screen.dart';
@@ -15,8 +16,8 @@ import 'login_screen.dart';
 /// - Sin sesión: Iniciar sesión (S3-11).
 /// - Con sesión de `user`: [home], la vista de usuario (Inicio,
 ///   Movimientos, Ajustes).
-/// - Con sesión de `accountant`: la vista de contador. Hasta S4-12 es la
-///   maqueta de S2-19, que avisa que usa datos de ejemplo.
+/// - Con sesión de `accountant`: la vista de contador, con los datos de
+///   la API (`/api/clients`, S5-09).
 /// - Con un rol que la app no reconoce: Iniciar sesión, sin privilegios
 ///   de nadie (HU-37).
 ///
@@ -31,7 +32,8 @@ class SessionGate extends StatefulWidget {
   /// Vista de usuario.
   final Widget home;
 
-  /// Vista de contador; por omisión, la maqueta de S2-19.
+  /// Vista de contador; por omisión, Clientes autorizados con los datos
+  /// de la API ([ClientsApi] del árbol).
   final Widget Function()? accountantHome;
 
   const SessionGate({super.key, required this.home, this.accountantHome});
@@ -69,7 +71,15 @@ class _SessionGateState extends State<SessionGate> {
       AppScreen.userHome => widget.home,
       AppScreen.accountantClients =>
         widget.accountantHome?.call() ??
-            AccountantClientsScreen(clients: accountantSampleClients()),
+            AccountantClientsScreen(
+              // La cuenta en la key: otra sesión de contador empieza con
+              // su propia lista.
+              key: ValueKey(session.user!.id),
+              data: ApiAccountantData(
+                session: session,
+                api: context.read<ClientsApi>(),
+              ),
+            ),
       _ => const LoginScreen(),
     };
   }
