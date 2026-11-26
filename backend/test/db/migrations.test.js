@@ -1,7 +1,8 @@
 'use strict';
 
 // S3-05 · Migraciones de usuarios, roles y sesiones contra PostgreSQL
-// real (HU-30 a HU-34). Casos DB-01 y DB-02 de docs/base-de-datos.md.
+// real (HU-30 a HU-34), y permisos de contador (S3-06, HU-37 a HU-42).
+// Casos DB-01 a DB-03 de docs/base-de-datos.md.
 //
 //   DATABASE_URL=postgres://USUARIO:CLAVE@localhost:5432/kopay_test npm run test:db
 //
@@ -55,15 +56,19 @@ afterAll(async () => {
 });
 
 describe('DB-01 · Migración desde cero', () => {
-  test('DB-01 · HU-30 · la primera vez crea users, sessions y schema_migrations', async () => {
+  test('DB-01 · HU-30 · la primera vez crea todas las tablas en orden', async () => {
     const done = await runMigrations(client);
-    expect(done).toEqual(['001_users_roles_sessions.sql']);
+    expect(done).toEqual([
+      '001_users_roles_sessions.sql',
+      '002_accountant_access.sql',
+    ]);
 
     const { rows } = await client.query(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public' ORDER BY table_name`,
     );
     expect(rows.map((r) => r.table_name)).toEqual([
+      'accountant_access',
       'schema_migrations',
       'sessions',
       'users',
@@ -72,8 +77,10 @@ describe('DB-01 · Migración desde cero', () => {
 
   test('DB-01 · HU-30 · la segunda vez no hace nada y no falla', async () => {
     await expect(runMigrations(client)).resolves.toEqual([]);
-    const { rows } = await client.query('SELECT version FROM schema_migrations');
-    expect(rows).toEqual([{ version: '001' }]);
+    const { rows } = await client.query(
+      'SELECT version FROM schema_migrations ORDER BY version',
+    );
+    expect(rows).toEqual([{ version: '001' }, { version: '002' }]);
   });
 });
 
@@ -203,5 +210,128 @@ describe('Capa de datos PostgreSQL', () => {
     });
     await expect(store.findUserByEmail('nadie@mail.com')).resolves.toBeNull();
     await expect(store.ping()).resolves.toBe(true);
+  });
+});
+
+describe('DB-03 · Conceder y revocar acceso a un contador', () => {
+  const { createPgStore } = require('../../src/data/pg-store');
+  let store;
+  let ana;
+  let luis;
+  let conta;
+  let otro;
+
+  beforeAll(() => {
+    store = createPgStore({ databaseUrl: config.databaseUrl });
+  });
+  afterAll(() => store.close());
+  beforeEach(async () => {
+    await client.query('TRUNCATE users CASCADE');
+    ana = await insertUser('ana@mail.com');
+    luis = await insertUser('luis@mail.com');
+    conta = await insertUser('conta@mail.com', 'accountant');
+    otro = await insertUser('otro@mail.com', 'accountant');
+  });
+
+  test('DB-03 · HU-38 · conceder crea un permiso vigente con fecha', async () => {
+    const { grant, created } = await store.createGrant({
+      userId: ana.id,
+      accountantId: conta.id,
+    });
+    expect(created).toBe(true);
+    expect(grant).toMatchObject({
+      userId: ana.id,
+      accountantId: conta.id,
+      revokedAt: null,
+    });
+    expect(grant.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(new Date(grant.grantedAt).toISOString()).toBe(grant.grantedAt);
+    await expect(
+      store.findActiveGrant({ userId: ana.id, accountantId: conta.id }),
+    ).resolves.toEqual(grant);
+  });
+
+  test('DB-03 · HU-38 · conceder dos veces no crea otro permiso vigente', async () => {
+    const first = await store.createGrant({ userId: ana.id, accountantId: conta.id });
+    const second = await store.createGrant({ userId: ana.id, accountantId: conta.id });
+    expect(second.created).toBe(false);
+    expect(second.grant).toEqual(first.grant);
+    // El índice único parcial también lo impide sin pasar por la capa.
+    expect(
+      await errorCode(
+        'INSERT INTO accountant_access (user_id, accountant_id) VALUES ($1, $2)',
+        [ana.id, conta.id],
+      ),
+    ).toBe('23505');
+  });
+
+  test('DB-03 · HU-41 · revocar solo cuenta el permiso vigente y conserva el historial', async () => {
+    const { grant } = await store.createGrant({ userId: ana.id, accountantId: conta.id });
+
+    await expect(store.revokeGrant({ grantId: grant.id, userId: ana.id })).resolves.toBe(true);
+    await expect(
+      store.findActiveGrant({ userId: ana.id, accountantId: conta.id }),
+    ).resolves.toBeNull();
+    await expect(store.listActiveGrantsByUser(ana.id)).resolves.toEqual([]);
+    // Revocar otra vez no hace nada.
+    await expect(store.revokeGrant({ grantId: grant.id, userId: ana.id })).resolves.toBe(false);
+
+    const history = await store.listGrantsByUser(ana.id);
+    expect(history).toHaveLength(1);
+    expect(history[0].revokedAt).not.toBeNull();
+
+    // Después de revocar se puede conceder de nuevo: queda uno vigente.
+    const again = await store.createGrant({ userId: ana.id, accountantId: conta.id });
+    expect(again.created).toBe(true);
+    expect(await store.listGrantsByUser(ana.id)).toHaveLength(2);
+    expect(await store.listActiveGrantsByUser(ana.id)).toEqual([again.grant]);
+  });
+
+  test('DB-03 · HU-34 · nadie revoca un permiso ajeno; un id mal formado no existe', async () => {
+    const { grant } = await store.createGrant({ userId: ana.id, accountantId: conta.id });
+    await expect(store.revokeGrant({ grantId: grant.id, userId: luis.id })).resolves.toBe(false);
+    await expect(store.revokeGrant({ grantId: 'no-es-uuid', userId: ana.id })).resolves.toBe(false);
+    await expect(
+      store.findActiveGrant({ userId: 'no-es-uuid', accountantId: conta.id }),
+    ).resolves.toBeNull();
+    await expect(
+      store.findActiveGrant({ userId: ana.id, accountantId: conta.id }),
+    ).resolves.not.toBeNull();
+  });
+
+  test('DB-03 · HU-39 · cada permiso es de un contador concreto', async () => {
+    await store.createGrant({ userId: ana.id, accountantId: conta.id });
+    await store.createGrant({ userId: luis.id, accountantId: otro.id });
+
+    await expect(
+      store.findActiveGrant({ userId: ana.id, accountantId: otro.id }),
+    ).resolves.toBeNull();
+    const anas = await store.listActiveGrantsByUser(ana.id);
+    expect(anas.map((g) => g.accountantId)).toEqual([conta.id]);
+  });
+
+  test('DB-03 · HU-42 · un usuario no se autoriza a sí mismo y una fecha de revocación previa se rechaza', async () => {
+    expect(
+      await errorCode(
+        'INSERT INTO accountant_access (user_id, accountant_id) VALUES ($1, $1)',
+        [ana.id],
+      ),
+    ).toBe('23514');
+    expect(
+      await errorCode(
+        `INSERT INTO accountant_access (user_id, accountant_id, granted_at, revoked_at)
+         VALUES ($1, $2, now(), now() - interval '1 day')`,
+        [ana.id, conta.id],
+      ),
+    ).toBe('23514');
+  });
+
+  test('DB-03 · HU-34 · borrar a la persona o al contador borra sus permisos', async () => {
+    await store.createGrant({ userId: ana.id, accountantId: conta.id });
+    await store.createGrant({ userId: luis.id, accountantId: otro.id });
+    await client.query('DELETE FROM users WHERE id = $1', [ana.id]);
+    await client.query('DELETE FROM users WHERE id = $1', [otro.id]);
+    const { rows } = await client.query('SELECT count(*)::int AS n FROM accountant_access');
+    expect(rows[0].n).toBe(0);
   });
 });
