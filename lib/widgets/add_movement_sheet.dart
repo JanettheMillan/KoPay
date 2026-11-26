@@ -46,6 +46,11 @@ class _AddMovementSheetState extends State<AddMovementSheet> {
 
   bool get _isEditing => widget.initial?.id != null;
 
+  /// D-09: un pago conserva su tipo y su tarjeta o deuda al editarse, y
+  /// su monto no se cambia aquí, para que el saldo no quede desfasado
+  /// (S2-15). Solo se editan descripción, categoría, fecha y nota.
+  bool get _isPayment => widget.initial?.isPayment ?? false;
+
   @override
   void initState() {
     super.initState();
@@ -88,16 +93,23 @@ class _AddMovementSheetState extends State<AddMovementSheet> {
     if (!fieldsOk || _categoryError != null) return;
 
     final note = _note.text.trim();
+    final initial = widget.initial;
     final movement = Movement(
-      id: widget.initial?.id,
-      amount: Validators.signedAmount(
-        Validators.parseAmount(_amount.text)!,
-        isExpense: _isExpense,
-      ),
+      id: initial?.id,
+      amount: _isPayment
+          ? initial!.amount
+          : Validators.signedAmount(
+              Validators.parseAmount(_amount.text)!,
+              isExpense: _isExpense,
+            ),
       description: _description.text.trim(),
       category: _category!,
       date: _date,
       note: note.isEmpty ? null : note,
+      // D-09: sin esto, editar un pago lo volvía un movimiento normal.
+      type: initial?.type ?? MovementType.regular,
+      cardId: initial?.cardId,
+      debtId: initial?.debtId,
     );
 
     setState(() => _saving = true);
@@ -163,13 +175,17 @@ class _AddMovementSheetState extends State<AddMovementSheet> {
               leftSelected: _isExpense,
               leftColor: AppColors.red,
               rightColor: AppColors.green,
-              onChanged: (expense) => setState(() => _isExpense = expense),
+              onChanged: (expense) {
+                if (_isPayment) return;
+                setState(() => _isExpense = expense);
+              },
             ),
             const FieldLabel('Monto'),
             TextFormField(
               key: const Key('movement-amount'),
               controller: _amount,
               autofocus: !_isEditing,
+              enabled: !_isPayment,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -182,6 +198,9 @@ class _AddMovementSheetState extends State<AddMovementSheet> {
               decoration: InputDecoration(
                 hintText: '0.00',
                 prefixText: _isExpense ? r'− $ ' : r'+ $ ',
+                helperText: _isPayment
+                    ? 'El monto de un pago se cambia desde su tarjeta o deuda'
+                    : null,
               ),
               validator: Validators.amount,
             ),
