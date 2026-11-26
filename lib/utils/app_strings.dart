@@ -61,6 +61,17 @@ class AppStrings {
     required this.delete,
     required this.dataDeleted,
     required this.deleteDataError,
+    required this.accountantSection,
+    required this.accountantPreview,
+    required this.accountantPreviewValue,
+    required this.sampleBanner,
+    required this.clientsTitle,
+    required this.authorizedOn,
+    required this.noClients,
+    required this.cardPayments,
+    required this.viewMovements,
+    required this.historyTitle,
+    required this.readOnly,
   });
 
   final String navHome;
@@ -123,6 +134,19 @@ class AppStrings {
   final String dataDeleted;
   final String deleteDataError;
 
+  // Maqueta de la vista de contador con datos de ejemplo (S2-19).
+  final String accountantSection;
+  final String accountantPreview;
+  final String accountantPreviewValue;
+  final String sampleBanner;
+  final String clientsTitle;
+  final String authorizedOn;
+  final String noClients;
+  final String cardPayments;
+  final String viewMovements;
+  final String historyTitle;
+  final String readOnly;
+
   static const AppStrings es = AppStrings._(
     navHome: 'Inicio',
     navMovements: 'Movimientos',
@@ -182,6 +206,18 @@ class AppStrings {
     delete: 'Borrar',
     dataDeleted: 'Datos borrados',
     deleteDataError: 'No se pudieron borrar los datos. No se borró nada.',
+    accountantSection: 'CONTADOR',
+    accountantPreview: 'Vista de contador',
+    accountantPreviewValue: 'Maqueta',
+    sampleBanner:
+        'Maqueta con datos de ejemplo. No está conectada a cuentas reales.',
+    clientsTitle: 'Clientes autorizados',
+    authorizedOn: 'Autorizó el {a}',
+    noClients: 'Aún no tienes clientes autorizados.',
+    cardPayments: 'Pagos de tarjeta',
+    viewMovements: 'Ver movimientos',
+    historyTitle: 'Movimientos',
+    readOnly: 'Solo lectura: no se puede crear, editar ni borrar.',
   );
 
   static const AppStrings en = AppStrings._(
@@ -239,6 +275,17 @@ class AppStrings {
     delete: 'Delete',
     dataDeleted: 'Data deleted',
     deleteDataError: 'Could not delete the data. Nothing was deleted.',
+    accountantSection: 'ACCOUNTANT',
+    accountantPreview: 'Accountant view',
+    accountantPreviewValue: 'Mock-up',
+    sampleBanner: 'Mock-up with sample data. Not connected to real accounts.',
+    clientsTitle: 'Authorized clients',
+    authorizedOn: 'Authorized on {a}',
+    noClients: 'You have no authorized clients yet.',
+    cardPayments: 'Card payments',
+    viewMovements: 'View activity',
+    historyTitle: 'Activity',
+    readOnly: 'Read only: nothing can be created, edited or deleted.',
   );
 
   /// Reemplaza `{a}`, `{b}`, `{c}`, `{d}` de [template] por [values].

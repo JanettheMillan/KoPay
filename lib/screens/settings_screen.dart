@@ -15,6 +15,7 @@ import '../utils/app_colors.dart';
 import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
 import '../widgets/ui_kit.dart';
+import 'accountant_clients_screen.dart';
 
 /// Ajustes: moneda e idioma (HU-24, HU-25), exportar XLSX e importar
 /// CSV (HU-26, HU-27) y borrar datos (HU-28).
@@ -362,6 +363,22 @@ class SettingsScreen extends StatelessWidget {
                     onTap: () => _deleteData(context),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            _SectionLabel(s.accountantSection),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: _SettingRow(
+                key: const Key('settings-accountant-preview'),
+                icon: Icons.badge_outlined,
+                label: s.accountantPreview,
+                value: s.accountantPreviewValue,
+                onTap: () => openAccountantPreview(context),
               ),
             ),
           ],
