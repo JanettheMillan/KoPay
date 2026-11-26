@@ -202,6 +202,97 @@ void main() {
     expect(provider.saved, [edited]);
   });
 
+  // D-09 · HU-16 · Editar un pago (aunque sea solo la nota) lo volvía un
+  // movimiento normal y perdía su tarjeta o deuda.
+  for (final (nombre, cardId, debtId) in [
+    ('tarjeta', 7, null),
+    ('deuda', null, 3),
+  ]) {
+    testWidgets('D-09 · HU-16 · editar la nota de un pago de $nombre conserva '
+        'tipo, liga y monto', (tester) async {
+      final pago = await provider.add(
+        Movement(
+          amount: -1200,
+          description: 'Pago $nombre',
+          category: 'Pagos',
+          date: DateTime(2026, 11, 10),
+          type: MovementType.payment,
+          cardId: cardId,
+          debtId: debtId,
+        ),
+      );
+
+      final results = await openSheet(tester, initial: pago);
+      await tester.enterText(
+        find.byKey(const Key('movement-note')),
+        'Pagado desde la app del banco',
+      );
+      await save(tester);
+
+      final edited = results.single!;
+      expect(edited.id, pago.id);
+      expect(edited.type, MovementType.payment);
+      expect(edited.isPayment, isTrue);
+      expect(edited.cardId, cardId);
+      expect(edited.debtId, debtId);
+      expect(edited.amount, -1200);
+      expect(edited.note, 'Pagado desde la app del banco');
+      expect(provider.saved, [edited]);
+    });
+  }
+
+  testWidgets('D-09 · HU-16 · en un pago el monto y el tipo no se cambian '
+      'desde aquí', (tester) async {
+    final pago = await provider.add(
+      Movement(
+        amount: -500,
+        description: 'Pago tarjeta',
+        category: 'Pagos',
+        date: DateTime(2026, 11, 10),
+        type: MovementType.payment,
+        cardId: 1,
+      ),
+    );
+
+    final results = await openSheet(tester, initial: pago);
+    final amount = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('movement-amount')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(amount.enabled, isFalse);
+    expect(
+      find.text('El monto de un pago se cambia desde su tarjeta o deuda'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Entrada'));
+    await tester.pumpAndSettle();
+    await save(tester);
+
+    expect(results.single!.amount, -500);
+    expect(results.single!.cardId, 1);
+  });
+
+  testWidgets('D-09 · un movimiento normal sigue siendo normal al editarse', (
+    tester,
+  ) async {
+    final gasto = await provider.add(
+      Movement(
+        amount: -80,
+        description: 'Café',
+        category: 'Comida',
+        date: DateTime(2026, 11, 10),
+      ),
+    );
+    final results = await openSheet(tester, initial: gasto);
+    await save(tester);
+    expect(results.single!.type, MovementType.regular);
+    expect(results.single!.cardId, isNull);
+    expect(results.single!.debtId, isNull);
+  });
+
   test('las categorías del selector coinciden con las de la base', () {
     expect(
       defaultCategoryEmojis.keys.toList(),
