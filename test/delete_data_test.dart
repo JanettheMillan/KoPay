@@ -8,6 +8,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopay/database/database_helper.dart';
+import 'package:kopay/models/card_model.dart';
+import 'package:kopay/models/debt_model.dart';
 import 'package:kopay/models/income_model.dart';
 import 'package:kopay/models/movement_model.dart';
 import 'package:kopay/providers/category_provider.dart';
@@ -134,4 +136,48 @@ void main() {
       isNot(contains(DatabaseHelper.settingsTable)),
     );
   });
+
+  test(
+    'BOR-03 · HU-28 · Confirmar borra también tarjetas y deudas reales',
+    () async {
+      await seed();
+      await helper.insertCard(
+        const CardModel(
+          name: 'Oro',
+          bank: 'BBVA',
+          creditLimit: 1000,
+          usedBalance: 200,
+          cutDay: 5,
+          paymentDay: 20,
+          minimumPayment: 50,
+        ),
+      );
+      await helper.insertDebt(
+        DebtModel(
+          name: 'Préstamo auto',
+          monthlyPayment: 100,
+          remainingBalance: 300,
+          dueDate: DateTime(2026, 12, 1),
+        ),
+      );
+      expect(await helper.getCards(), hasLength(1));
+      expect(await helper.getDebts(), hasLength(1));
+
+      await helper.deleteFinancialData();
+
+      expect(await helper.getMovements(), isEmpty);
+      expect(await helper.getIncomes(), isEmpty);
+      expect(await helper.getCards(), isEmpty);
+      expect(await helper.getDebts(), isEmpty);
+
+      // El borrado también se conserva al reabrir la base.
+      await helper.close();
+      final reabierta = DatabaseHelper.withFactory(databaseFactoryFfi, path);
+      addTearDown(reabierta.close);
+      expect(await reabierta.getCards(), isEmpty);
+      expect(await reabierta.getDebts(), isEmpty);
+      expect(await reabierta.getMovements(), isEmpty);
+      expect(await reabierta.getIncomes(), isEmpty);
+    },
+  );
 }

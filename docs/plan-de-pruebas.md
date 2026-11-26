@@ -1076,6 +1076,32 @@ Pruebas nuevas que no están en el plan, en `test/home_screen_test.dart`:
 
 **Resumen:** UT-33 pasa de Fallido a Aprobado (6 de 6). La suite completa: 229 aprobadas, 3 omitidas, 0 fallidas. D-03 queda corregido; el resultado de 8.1 se conserva como registro de la primera ejecución.
 
+### 8.8 Ejecución S2-18: pruebas de ajustes y respaldo
+
+| Campo | Valor |
+| :--- | :--- |
+| Tarjeta | S2-18 · [#16](https://github.com/JanettheMillan/KoPay/issues/16) |
+| Fecha | 2026-11-26 |
+| Responsable | `Leonardo-20233tn223` |
+| Versión | rama `test/s2-18-ajustes-respaldo` sobre `develop` en `3b9fc23` |
+| Entorno | Flutter 3.47.5 (stable), Windows 11, `flutter test` sin dispositivo |
+| Archivos | `test/settings_provider_test.dart`, `test/settings_screen_test.dart`, `test/backup_service_test.dart`, `test/backup_database_test.dart`, `test/settings_backup_test.dart`, `test/delete_data_test.dart`, `test/delete_data_screen_test.dart` |
+| Comando | `flutter test --no-pub --concurrency=1 <los siete archivos> -r expanded` |
+| Salida | `00:11 +50: All tests passed!` |
+| Suite completa | `flutter test --no-pub` → `00:27 +393 ~3: All tests passed!` |
+
+| Área | Casos | Resultado | Observado |
+| :--- | :--- | :--- | :--- |
+| Moneda | INT-SET-01/02/04/05/06, UI-SET-01/02/04, UT-29, UT-59 | **Aprobado** | El símbolo cambia en Inicio, se guarda y se conserva al reabrir; un valor inválido no cambia el ajuste. |
+| Idioma | INT-SET-01/03, UI-SET-03 | **Aprobado** | Los textos cambian a inglés y la selección persiste. |
+| XLSX | RES-01 a RES-04, UI-RES-01/02 | **Aprobado** | Tres hojas, columnas en orden, celdas numéricas y de fecha, archivo sin registros y error de compartición. |
+| CSV | IMP-01 a IMP-09 y variantes de interfaz | **Aprobado** | Confirmar reemplaza, cancelar conserva, una fila inválida cancela todo y un fallo de escritura revierte. |
+| Borrado | BOR-01 a BOR-04, UI-BOR | **Aprobado** | Cancelar conserva; confirmar borra movimientos, ingresos, tarjetas y deudas; se conservan categorías, moneda e idioma. |
+
+`BOR-03` se reforzó con tarjeta y deuda reales: antes solo comprobaba la lista de tablas. El detalle está en [casos-s2-18.md](casos-s2-18.md).
+
+**Resumen:** 50 pruebas del bloque aprobadas, 393 de la suite aprobadas, 3 omitidas y 0 fallidas. Sin defectos nuevos.
+
 ## 9. Alineación con el Manual de Estilo
 
 Esta sección **agrega** pruebas y evidencia para cumplir la Definition of Done (DoD, sección 5.2) del *Manual de Estilo de Trabajo: KoPay V2*. No modifica las historias de usuario, sus criterios ni los casos de las secciones 4 a 6; los casos nuevos se enlazan a historias que ya existen.

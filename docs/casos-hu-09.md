@@ -50,8 +50,8 @@ El plan anterior esperaba que un «movimiento positivo cuyo tipo no es income» 
 | Archivos | `test/month_summary_test.dart`, `test/home_screen_test.dart` |
 | Comando de los casos | `flutter test --no-pub test/month_summary_test.dart test/home_screen_test.dart -r expanded` |
 | Salida | `00:02 +17: All tests passed!` |
-| Comando de la suite | `flutter test --no-pub` |
-| Salida de la suite | `00:27 +359 ~4: All tests passed!` (359 aprobadas, 4 omitidas, 0 fallidas) |
+| Comando de la suite | `flutter test --no-pub` (con `develop` en `60aa4f9` integrado) |
+| Salida de la suite | `00:25 +363 ~3: All tests passed!` (363 aprobadas, 3 omitidas, 0 fallidas) |
 | Análisis | `flutter analyze --no-pub` → `No issues found!` |
 
 ### Verificación en Android
