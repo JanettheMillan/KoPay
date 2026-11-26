@@ -48,11 +48,14 @@ Configuración: {
   port: 3000,
   corsOrigin: '*',
   databaseUrl: 'definida',
-  jwtSecret: 'definido'
+  jwtSecret: 'definido',
+  banxicoToken: 'sin definir'
 }
 ```
 
 Los secretos nunca se muestran: solo dice si están definidos.
+
+Para el tipo de cambio (`GET /api/exchange-rates`, S5-06) necesitas tu propio token de Banxico, que es gratis: pídelo en <https://www.banxico.org.mx/SieAPIRest/service/v1/token> y ponlo en `BANXICO_TOKEN` de tu `.env`. Sin token, esa ruta responde `503` y lo demás funciona igual. No compartas tu token en el grupo ni lo subas.
 
 En desarrollo no hace falta un `.env`. Para cambiar algo, por ejemplo el puerto:
 
@@ -150,13 +153,13 @@ En el Sprint 3 el `accessToken` es texto aleatorio que vence a los 900 segundos.
 | :--- | :--- | :--- |
 | `development` (por defecto) | Trabajar en la computadora | No |
 | `test` | Pruebas automáticas | No |
-| `production` | Servidor real | Sí: `DATABASE_URL`, `JWT_SECRET` (32 caracteres o más, distinto del ejemplo) y `CORS_ORIGIN` |
+| `production` | Servidor real | Sí: `DATABASE_URL`, `JWT_SECRET` (32 caracteres o más, distinto del ejemplo), `CORS_ORIGIN` y `BANXICO_TOKEN` (S5-06) |
 
 En producción, si falta algo, el servicio no arranca y dice qué falta:
 
 ```
 $ NODE_ENV=production npm start
-Configuración de producción incompleta: falta DATABASE_URL; falta JWT_SECRET; falta CORS_ORIGIN.
+Configuración de producción incompleta: falta DATABASE_URL; falta JWT_SECRET; falta CORS_ORIGIN; falta BANXICO_TOKEN.
 ```
 
 Las variables están explicadas en [`.env.example`](.env.example).

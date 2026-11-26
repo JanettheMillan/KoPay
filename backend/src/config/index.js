@@ -12,8 +12,9 @@ const dotenv = require('dotenv');
  *
  * - `development` y `test` funcionan sin `.env`: usan valores locales
  *   que no sirven fuera de la computadora del desarrollador.
- * - `production` exige `DATABASE_URL` y un `JWT_SECRET` real; si falta
- *   alguno, el servidor no arranca.
+ * - `production` exige `DATABASE_URL`, un `JWT_SECRET` real,
+ *   `CORS_ORIGIN` y `BANXICO_TOKEN` (S5-06); si falta alguno, el servidor
+ *   no arranca.
  *
  * Los secretos van en `backend/.env` (nunca se sube) o en las variables
  * del servicio donde se despliegue. La plantilla es `.env.example`.
@@ -26,6 +27,15 @@ const MIN_SECRET_LENGTH = 32;
 
 /** Valor de ejemplo de `.env.example`; nunca es un secreto válido. */
 const EXAMPLE_SECRET = 'cambia-esto-por-un-secreto-largo';
+
+/** Valor de ejemplo de `BANXICO_TOKEN` en `.env.example` (S5-06). */
+const EXAMPLE_BANXICO_TOKEN = 'pega-aqui-tu-token-de-banxico';
+
+/**
+ * Token del SIE de Banxico: 64 caracteres hexadecimales. Cada integrante
+ * saca el suyo; nunca se comparte ni se sube.
+ */
+const BANXICO_TOKEN_PATTERN = /^[0-9a-f]{64}$/i;
 
 /** Valores locales para desarrollo y pruebas, nunca para producción. */
 const LOCAL_DEFAULTS = {
@@ -75,6 +85,9 @@ function loadConfig(env = process.env) {
   const databaseUrl = read(env, 'DATABASE_URL') ?? local.databaseUrl;
   const jwtSecret = read(env, 'JWT_SECRET') ?? local.jwtSecret;
   const corsOrigin = read(env, 'CORS_ORIGIN') ?? local.corsOrigin;
+  // Sin valor local: sin token, el tipo de cambio responde 503 (S5-06).
+  const banxicoRaw = read(env, 'BANXICO_TOKEN');
+  const banxicoToken = banxicoRaw === EXAMPLE_BANXICO_TOKEN ? undefined : banxicoRaw;
 
   if (name === 'production') {
     const problems = [];
@@ -89,6 +102,13 @@ function loadConfig(env = process.env) {
       );
     }
     if (!corsOrigin) problems.push('falta CORS_ORIGIN');
+    if (!banxicoRaw) {
+      problems.push('falta BANXICO_TOKEN');
+    } else if (banxicoRaw === EXAMPLE_BANXICO_TOKEN) {
+      problems.push('BANXICO_TOKEN tiene el valor de ejemplo');
+    } else if (!BANXICO_TOKEN_PATTERN.test(banxicoRaw)) {
+      problems.push('BANXICO_TOKEN debe tener 64 caracteres hexadecimales');
+    }
     if (problems.length > 0) {
       throw new Error(`Configuración de producción incompleta: ${problems.join('; ')}.`);
     }
@@ -101,6 +121,7 @@ function loadConfig(env = process.env) {
     databaseUrl,
     jwtSecret,
     corsOrigin,
+    banxicoToken,
   });
 }
 
@@ -126,11 +147,13 @@ function describeConfig(config) {
     corsOrigin: config.corsOrigin,
     databaseUrl: config.databaseUrl ? 'definida' : 'sin definir',
     jwtSecret: config.jwtSecret ? 'definido' : 'sin definir',
+    banxicoToken: config.banxicoToken ? 'definido' : 'sin definir',
   };
 }
 
 module.exports = {
   ENVIRONMENTS,
+  EXAMPLE_BANXICO_TOKEN,
   EXAMPLE_SECRET,
   MIN_SECRET_LENGTH,
   describeConfig,

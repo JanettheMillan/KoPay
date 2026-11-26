@@ -21,6 +21,8 @@ const PROD = {
   DATABASE_URL: 'postgres://usuario:clave@db.example.com:5432/kopay',
   JWT_SECRET: SECRET,
   CORS_ORIGIN: 'https://kopay.example.com',
+  // Token de mentira con el formato de Banxico (S5-06).
+  BANXICO_TOKEN: 'b'.repeat(64),
 };
 
 describe('Ambientes', () => {

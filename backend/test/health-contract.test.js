@@ -60,6 +60,7 @@ describe('Contrato de salud', () => {
       DATABASE_URL: 'postgres://usuario:clave-secreta@db/kopay',
       JWT_SECRET: 's'.repeat(40),
       CORS_ORIGIN: 'https://kopay.example.com',
+      BANXICO_TOKEN: 'b'.repeat(64),
     });
     const res = await request(createApp({ config })).get('/api/health');
     const texto = JSON.stringify(res.body);
