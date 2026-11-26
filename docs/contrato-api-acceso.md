@@ -50,6 +50,7 @@ Cualquier respuesta con estado `4xx` o `5xx` tiene este cuerpo:
 | 403 | `FORBIDDEN` | La sesión es válida pero el rol o el permiso no alcanzan (S3-14). | Muestra `error`. En la vista de contador, el aviso de acceso retirado. |
 | 404 | `NOT_FOUND` | La ruta o el registro no existe para esa cuenta. | Muestra `error`. |
 | 409 | `EMAIL_TAKEN` | Ya hay una cuenta con ese correo. | Marca el campo correo con `error`. |
+| 409 | `VERSION_CONFLICT` | El registro cambió en otro dispositivo después de que la app lo leyó (envía una `version` vieja). | Recarga el registro y avisa; no sobrescribe. |
 | 413 | `PAYLOAD_TOO_LARGE` | El cuerpo pasa de 100 kB. | Muestra `error`. |
 | 429 | `TOO_MANY_ATTEMPTS` | Código de recuperación con 5 intentos fallidos (sección 3.8). En el login sigue reservado: se implementa cuando se autorice la librería. | Muestra `error` y desactiva el botón un momento. En recuperación, regresa a pedir un código nuevo. |
 | 500 | `INTERNAL` | Error inesperado del servidor. | Muestra `error` y permite reintentar. |
@@ -309,6 +310,44 @@ Errores:
 - Un fallo no se guarda en caché: la siguiente petición vuelve a intentar.
 - `BANXICO_TOKEN` va en `backend/.env` y es obligatorio en `production` (64 caracteres hexadecimales). Cada integrante saca su propio token; no se comparte ni se sube.
 
+### 3.12 `/api/movements` · Movimientos (HU-01, HU-05, HU-06, HU-07, HU-08, S5-01)
+
+Requiere `Authorization: Bearer <accessToken>` de una cuenta `user`. Pasa por la protección de S4-03: sin sesión `401`, con una cuenta `accountant` `403`, y el dueño **siempre** es la cuenta de la sesión. Un `userId` en el cuerpo o en la consulta se ignora.
+
+Un movimiento en las respuestas:
+
+```json
+{
+  "id": "b1c2…", "amount": -150.5, "description": "Súper", "category": "Comida",
+  "date": "2026-11-26T00:00:00.000Z", "note": null, "type": "regular",
+  "cardId": null, "debtId": null, "version": 1,
+  "createdAt": "2026-11-26T18:30:00.000Z", "updatedAt": "2026-11-26T18:30:00.000Z"
+}
+```
+
+| Método y ruta | Éxito | Errores propios |
+| :--- | :--- | :--- |
+| `GET /api/movements` | `200 { "movements": [ … ] }`, del más reciente al más antiguo. `?month=AAAA-MM` filtra por mes (UTC). | `400` con `fields.month` si el mes no es `AAAA-MM` |
+| `GET /api/movements/:id` | `200 { "movement" }` | `404 NOT_FOUND` "No encontramos ese registro" si no existe **o es de otra cuenta** (la misma respuesta) |
+| `POST /api/movements` | `201 { "movement" }`, con `type: "regular"` y `version: 1` | `400 VALIDATION_FAILED` con `fields` |
+| `PUT /api/movements/:id` | `200 { "movement" }` con la `version` aumentada en 1 | `400`, `404`, `409 VERSION_CONFLICT` |
+| `DELETE /api/movements/:id` | `204` sin cuerpo | `404`; `400` con `fields.type` si es un pago |
+
+Campos de `POST` y `PUT` (se revisan todos a la vez, igual que en la app):
+
+| Campo | Regla | Mensaje en `fields` |
+| :--- | :--- | :--- |
+| `amount` | Número distinto de cero, con máximo dos decimales y valor absoluto hasta 999,999,999.99. **Con signo:** negativo = gasto, positivo = entrada (HU-03). | `Escribe un monto` / `Escribe un monto válido, por ejemplo 150.50` / `El monto no puede ser cero` / `El monto es demasiado grande` / `Usa máximo dos decimales` |
+| `description` | Obligatoria, de 1 a 60 caracteres sin espacios a los lados. | `Escribe una descripción` / `La descripción puede tener hasta 60 caracteres` |
+| `category` | Obligatoria, de 1 a 30 caracteres. | `Elige una categoría` / `La categoría puede tener hasta 30 caracteres` |
+| `date` | `AAAA-MM-DD` (se guarda a las 00:00 UTC) o fecha y hora ISO 8601. Una fecha imposible como `2026-02-30` se rechaza (D-03). | `Escribe una fecha válida (AAAA-MM-DD)` |
+| `note` | Opcional, hasta 140 caracteres. Vacía se guarda como `null`. | `La nota puede tener hasta 140 caracteres` |
+| `version` | Solo en `PUT`, opcional: la versión que la app leyó. Si ya no es la guardada, `409 VERSION_CONFLICT` sin cambiar nada (sincronización, HU-36). | `La versión debe ser un número entero mayor que cero` |
+
+- Los campos `id`, `userId`, `cardId`, `debtId`, `createdAt` y `updatedAt` que mande la app se ignoran.
+- **Pagos:** los movimientos `type: "payment"` aparecen en `GET`, pero se registran, cambian y borran desde su tarjeta o deuda (S5-05), para que el saldo no quede desfasado (S2-15). Un `POST` con `type: "payment"`, o un `PUT` o `DELETE` sobre un pago, responde `400` con `fields.type`: `Los pagos se registran desde su tarjeta o deuda`.
+- El `409` se responde también si dos `PUT` llegan a la vez: solo uno gana.
+
 ## 4. Resumen de rutas
 
 | Método y ruta | Sesión | Tarjeta | Éxito | Errores propios |
@@ -325,6 +364,7 @@ Errores:
 | `POST /api/auth/reset` | No | S4-19 | `204` y cierra todas las sesiones | `VALIDATION_FAILED`, `TOO_MANY_ATTEMPTS` |
 | `GET /api/clients` | Sí, `accountant` | S4-06 | `200 { clients }` | `FORBIDDEN` |
 | `GET /api/clients/:userId` | Sí, `accountant` con permiso | S4-06 | `200 { client }` | `FORBIDDEN` |
+| `GET`, `POST /api/movements` y `GET`, `PUT`, `DELETE /api/movements/:id` | Sí, `user` | S5-01 | `200`/`201 { movement(s) }`, `204` al borrar | `VALIDATION_FAILED`, `NOT_FOUND`, `VERSION_CONFLICT`, `FORBIDDEN` |
 | `GET /api/exchange-rates` | Sí, cualquier rol | S5-06 | `200 { base, quote, rate, date, source }` | `UNAVAILABLE` |
 
 ## 5. Casos de prueba del contrato

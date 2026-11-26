@@ -169,6 +169,23 @@ Después de actualizar `develop`, corre `npm run migrate`: S4-02 agrega la migra
 
 Las rutas de cada recurso se agregan en S5-01 a S5-05 con `createApp({ financeRegistrars: { movements: (router) => { … } } })`. Para leer, editar o borrar un registro por id se usa `ensureOwned(row, req.ownerId)`: si no existe o es de otra cuenta responde `404 NOT_FOUND` "No encontramos ese registro", igual en los dos casos. Mientras un recurso no tenga rutas, una cuenta `user` recibe `404`.
 
+### Movimientos (S5-01)
+
+`/api/movements` es la primera ruta financiera, detrás de la protección de S4-03. El detalle está en la sección 3.12 del contrato.
+
+- `GET /api/movements` (opcional `?month=AAAA-MM`), `GET /api/movements/:id`, `POST`, `PUT /:id` y `DELETE /:id`.
+- El monto lleva signo: negativo es gasto, positivo es entrada. Se guarda en `numeric(14,2)`.
+- `PUT` acepta `version`: si ya cambió en otro dispositivo, responde `409 VERSION_CONFLICT`.
+- Un registro de otra cuenta responde `404`, igual que uno que no existe.
+- Los pagos se leen aquí, pero se manejan desde su tarjeta o deuda (S5-05).
+
+```bash
+curl -s -X POST http://localhost:3000/api/movements -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" -d '{"amount":-50,"description":"Café","category":"Comida","date":"2026-11-26"}'
+```
+
+Después de actualizar `develop`, corre `npm run migrate`: S5-01 agrega `005_movements.sql`.
+
 ### Recuperación de acceso (S4-19)
 
 1. `POST /api/auth/recover` con `{ "email" }` responde siempre `200 { message }`, exista o no la cuenta. Si existe, envía por correo un código de 6 dígitos que vence en 15 minutos. Como máximo un correo por minuto por cuenta: antes de ese minuto responde igual, pero no envía otro.

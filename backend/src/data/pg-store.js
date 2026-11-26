@@ -111,6 +111,28 @@ function toGrant(row) {
   };
 }
 
+/** Fila de `movements` con los nombres que usan los servicios (S5-01). */
+function toMovement(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    amount: Number(row.amount),
+    description: row.description,
+    category: row.category,
+    date: row.date.toISOString(),
+    note: row.note,
+    type: row.type,
+    cardId: row.card_id,
+    debtId: row.debt_id,
+    version: row.version,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+  };
+}
+
+const MOVEMENT_COLUMNS =
+  'id, user_id, amount, description, category, date, note, type, card_id, debt_id, version, created_at, updated_at';
+
 const GRANT_COLUMNS = 'id, user_id, accountant_id, granted_at, revoked_at';
 
 /** Fila de `password_resets` con los nombres que usan los servicios. */
@@ -233,6 +255,71 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
         [refreshTokenHash],
       );
       return rows.length === 0 ? null : toSession(rows[0]);
+    },
+
+    // ── Movimientos (S5-01) ────────────────────────────────────────
+
+    /** Guarda un movimiento normal de `userId` y lo devuelve con `id` y `version` 1. */
+    async createMovement({ userId, amount, description, category, date, note }) {
+      const { rows } = await query(
+        `INSERT INTO movements (user_id, amount, description, category, date, note)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING ${MOVEMENT_COLUMNS}`,
+        [userId, amount.toFixed(2), description, category, date.toISOString(), note ?? null],
+      );
+      return toMovement(rows[0]);
+    },
+
+    /** Movimiento con ese `id`, de cualquier cuenta, o `null`. El servicio revisa el dueño. */
+    async findMovementById(id) {
+      try {
+        const { rows } = await query(
+          `SELECT ${MOVEMENT_COLUMNS} FROM movements WHERE id = $1`,
+          [id],
+        );
+        return rows.length === 0 ? null : toMovement(rows[0]);
+      } catch (err) {
+        if (err.code === INVALID_TEXT) return null;
+        throw err;
+      }
+    },
+
+    /** Movimientos de `userId`, del más reciente al más antiguo; `from`/`to` acotan la fecha. */
+    async listMovements({ userId, from, to }) {
+      const { rows } = await query(
+        `SELECT ${MOVEMENT_COLUMNS} FROM movements
+         WHERE user_id = $1
+           AND ($2::timestamptz IS NULL OR date >= $2)
+           AND ($3::timestamptz IS NULL OR date < $3)
+         ORDER BY date DESC, created_at DESC`,
+        [userId, from ? from.toISOString() : null, to ? to.toISOString() : null],
+      );
+      return rows.map(toMovement);
+    },
+
+    /**
+     * Cambia el movimiento solo si es de `userId` y sigue en
+     * `expectedVersion`; sube la versión. Devuelve `null` si no se cambió.
+     */
+    async updateMovement({ id, userId, expectedVersion, amount, description, category, date, note }) {
+      const { rows } = await query(
+        `UPDATE movements
+         SET amount = $4, description = $5, category = $6, date = $7, note = $8,
+             version = version + 1, updated_at = now()
+         WHERE id = $1 AND user_id = $2 AND version = $3
+         RETURNING ${MOVEMENT_COLUMNS}`,
+        [id, userId, expectedVersion, amount.toFixed(2), description, category, date.toISOString(), note ?? null],
+      );
+      return rows.length === 0 ? null : toMovement(rows[0]);
+    },
+
+    /** Borra el movimiento si es de `userId`. Devuelve `true` si lo borró. */
+    async deleteMovement({ id, userId }) {
+      const { rowCount } = await query(
+        'DELETE FROM movements WHERE id = $1 AND user_id = $2',
+        [id, userId],
+      );
+      return rowCount === 1;
     },
 
     /**
