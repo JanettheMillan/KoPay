@@ -376,4 +376,36 @@ void main() {
       expect(p.isPaid, isTrue);
     });
   });
+
+  test('PRX-05 · HU-18 · Una tarjeta sin saldo no aparece y sin mínimo se '
+      'pide el saldo', () {
+    const base = CardModel(
+      id: 50,
+      name: 'Base',
+      bank: 'B',
+      creditLimit: 1000,
+      usedBalance: 0,
+      cutDay: 5,
+      paymentDay: 28,
+    );
+    final result = computeUpcoming(
+      cards: [
+        base.copyWith(name: 'Sin saldo', minimumPayment: 100),
+        base.copyWith(id: 51, name: 'Sin mínimo', usedBalance: 800),
+        base.copyWith(
+          id: 52,
+          name: 'Saldo menor',
+          usedBalance: 40,
+          minimumPayment: 100,
+        ),
+      ],
+      debts: const [],
+      movements: const [],
+      now: DateTime(2026, 11, 26),
+    );
+
+    expect(result.map((u) => u.name), ['Saldo menor', 'Sin mínimo']);
+    expect(result.firstWhere((u) => u.sourceId == 51).amount, 800);
+    expect(result.firstWhere((u) => u.sourceId == 52).amount, 40);
+  });
 }

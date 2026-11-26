@@ -11,7 +11,8 @@ import '../models/upcoming_payment.dart';
 /// - **Tarjeta:** vence el próximo día de pago a partir de hoy; si el de
 ///   este mes ya pasó, el del mes siguiente. Si el mes no tiene ese día
 ///   (31 en febrero), vence el último día del mes. Corresponde pagar el
-///   pago mínimo.
+///   pago mínimo, o el saldo usado si es menor o si no hay mínimo. Las
+///   tarjetas sin saldo usado no se incluyen: no hay nada que pagar.
 /// - **Deuda:** vence en su `dueDate`, sin inventar otra fecha.
 ///   Corresponde pagar la mensualidad, o el saldo si es menor. Las deudas
 ///   pagadas y las ya vencidas no se incluyen.
@@ -35,6 +36,12 @@ List<UpcomingPayment> computeUpcoming({
   final result = <UpcomingPayment>[];
 
   for (final card in cards) {
+    final used = (card.usedBalance * 100).round();
+    if (used <= 0) continue;
+    final minimum = (card.minimumPayment * 100).round();
+    final cardAmount = minimum > 0 && minimum < used
+        ? card.minimumPayment
+        : card.usedBalance;
     var due = _dueInMonth(today.year, today.month, card.paymentDay);
     if (due.isBefore(today)) {
       due = _dueInMonth(today.year, today.month + 1, card.paymentDay);
@@ -48,7 +55,7 @@ List<UpcomingPayment> computeUpcoming({
         due: due,
         previousDue: previous,
         today: today,
-        amount: card.minimumPayment,
+        amount: cardAmount,
         payments: payments.where((m) => card.id != null && m.cardId == card.id),
       ),
     );
