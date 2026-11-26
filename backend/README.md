@@ -146,7 +146,7 @@ En el Sprint 3 el `accessToken` es texto aleatorio que vence a los 900 segundos.
 
 ### Recuperación de acceso (S4-19)
 
-1. `POST /api/auth/recover` con `{ "email" }` responde siempre `200 { message }`, exista o no la cuenta. Si existe, envía por correo un código de 6 dígitos que vence en 15 minutos.
+1. `POST /api/auth/recover` con `{ "email" }` responde siempre `200 { message }`, exista o no la cuenta. Si existe, envía por correo un código de 6 dígitos que vence en 15 minutos. Como máximo un correo por minuto por cuenta: antes de ese minuto responde igual, pero no envía otro.
 2. `POST /api/auth/reset` con `{ "email", "code", "password" }` responde `204`. Cambia la contraseña y cierra todas las sesiones de la cuenta. Un código incorrecto, vencido o usado responde `400` con `fields.code`; después de 5 intentos fallidos, `429 TOO_MANY_ATTEMPTS`.
 
 En `development` y `test` no se envía ningún correo: el código sale en la consola del servicio.

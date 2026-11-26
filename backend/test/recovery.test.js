@@ -1,6 +1,6 @@
 // S4-19 · Recuperación segura de acceso (HU-32).
 //
-// CON-17 a CON-26 son los casos de docs/contrato-api-acceso.md
+// CON-17 a CON-26 y CON-28 son los casos de docs/contrato-api-acceso.md
 // (sección 5). REC-01 a REC-08 son pruebas nuevas de esta tarjeta,
 // anotadas en el PR. El correo se reemplaza por uno falso que guarda el
 // código: no se usa la red.
@@ -222,21 +222,23 @@ describe('POST /api/auth/reset', () => {
   });
 
   test('REC-04 · HU-32 · después del 429, un código nuevo vuelve a funcionar', async () => {
-    const { mailer, recover, reset } = await setup();
+    const { mailer, recover, reset, adelantar } = await setup();
     await recover();
     const viejo = mailer.lastCode();
     for (let i = 0; i < 5; i += 1) await reset({ code: otro(viejo) });
     expect((await reset({ code: viejo })).status).toBe(429);
 
+    adelantar(1);
     await recover();
 
     expect((await reset({ code: mailer.lastCode() })).status).toBe(204);
   });
 
   test('CON-24 · HU-32 · pedir dos códigos invalida el primero', async () => {
-    const { mailer, recover, reset } = await setup();
+    const { mailer, recover, reset, adelantar } = await setup();
     await recover();
     const primero = mailer.lastCode();
+    adelantar(1);
     await recover();
     const segundo = mailer.lastCode();
 
@@ -247,6 +249,41 @@ describe('POST /api/auth/reset', () => {
       expect(res.body).toEqual(codigoInvalido);
     }
     expect((await reset({ code: segundo })).status).toBe(204);
+  });
+
+  test('CON-28 · HU-32 · un correo por minuto por cuenta; el segundo pedido responde igual', async () => {
+    const { mailer, recover, reset, adelantar } = await setup();
+
+    const primero = await recover();
+    const code = mailer.lastCode();
+    adelantar(59 / 60); // 59 segundos después
+    const segundo = await recover();
+
+    expect(segundo.status).toBe(200);
+    expect(segundo.body).toEqual(primero.body);
+    expect(mailer.sent).toHaveLength(1);
+
+    adelantar(1 / 60); // ya pasó el minuto
+    await recover();
+    expect(mailer.sent).toHaveLength(2);
+
+    // Si sale el mismo código por azar, el primero seguiría sirviendo.
+    if (mailer.lastCode() !== code) {
+      expect((await reset({ code })).status).toBe(400);
+    }
+    expect((await reset({ code: mailer.lastCode() })).status).toBe(204);
+  });
+
+  test('REC-14 · HU-32 · dentro del minuto, el código enviado sigue sirviendo', async () => {
+    const { mailer, recover, reset, adelantar } = await setup();
+    await recover();
+    const code = mailer.lastCode();
+
+    adelantar(0.5);
+    await recover();
+
+    expect(mailer.sent).toHaveLength(1);
+    expect((await reset({ code })).status).toBe(204);
   });
 
   test('CON-25 · HU-32 · correo sin cuenta responde como un código incorrecto; campos inválidos → fields', async () => {
@@ -310,7 +347,7 @@ describe('POST /api/auth/reset', () => {
     const { api, mailer, recover, reset } = await setup();
     await api.post('/api/auth/register').send({ ...ana, email: 'beto@mail.com' }).expect(201);
     await recover('ana@mail.com');
-    await recover('beto@mail.com');
+    await recover('beto@mail.com'); // otra cuenta: el límite es por cuenta
     const deAna = mailer.lastCode('ana@mail.com');
     const deBeto = mailer.lastCode('beto@mail.com');
 

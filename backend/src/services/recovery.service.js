@@ -10,6 +10,8 @@ const passwords = require('./password.service');
 const CODE_TTL_MINUTES = 15;
 /** Intentos fallidos que admite un código (contrato, sección 3.8). */
 const MAX_ATTEMPTS = 5;
+/** Un correo de recuperación por minuto por cuenta (CON-28). */
+const RESEND_INTERVAL_SECONDS = 60;
 
 /** Respuesta de `recover`, igual exista o no la cuenta. */
 const RECOVER_MESSAGE = 'Si el correo tiene una cuenta, te enviamos un código. Vence en 15 minutos.';
@@ -46,6 +48,13 @@ function createRecoveryService({
   const sameHash = (a, b) =>
     a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
+  /** `true` si a esa cuenta se le envió un código hace menos de un minuto. */
+  const sentRecently = async (userId) => {
+    const latest = await store.findLatestPasswordReset(userId);
+    if (!latest) return false;
+    return now().getTime() - new Date(latest.createdAt).getTime() < RESEND_INTERVAL_SECONDS * 1000;
+  };
+
   const invalidCode = () =>
     new HttpError(400, 'Revisa los datos marcados', {
       fields: { code: MESSAGES.codeInvalid },
@@ -64,6 +73,11 @@ function createRecoveryService({
       }
 
       const user = await store.findUserByEmail(value.email);
+      if (user && (await sentRecently(user.id))) {
+        // Un correo por minuto por cuenta (CON-28). Misma respuesta, para
+        // no revelar que la cuenta existe; el código anterior sigue valiendo.
+        return { message: RECOVER_MESSAGE };
+      }
       if (user) {
         const code = generateCode();
         const expiresAt = new Date(now().getTime() + CODE_TTL_MINUTES * 60_000);
@@ -129,6 +143,7 @@ function createRecoveryService({
 module.exports = {
   CODE_TTL_MINUTES,
   MAX_ATTEMPTS,
+  RESEND_INTERVAL_SECONDS,
   RECOVER_MESSAGE,
   TOO_MANY_MESSAGE,
   createRecoveryService,
