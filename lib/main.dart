@@ -13,6 +13,7 @@ import 'providers/session_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/movements_screen.dart';
+import 'screens/session_gate.dart';
 import 'screens/settings_screen.dart';
 import 'services/auth_api.dart';
 import 'services/http_auth_api.dart';
@@ -73,7 +74,8 @@ class KopayApp extends StatelessWidget {
         overscroll: false,
       ),
       theme: buildKopayTheme(),
-      home: const MainShell(),
+      // Splash, Iniciar sesión o la vista del rol según la sesión (S3-12).
+      home: const SessionGate(home: MainShell()),
     );
   }
 }
