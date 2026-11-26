@@ -492,11 +492,11 @@ Actualizado en #14: el modelo real no tiene un tipo `income`. HU-03 exige que un
 **HU-30** · Unitaria · Prioridad media
 
 - **Preparación:** Mapa de cuenta con id, name, email, role y createdAt.
-- **Acción:** Armar un AuthUser con fromMap y consultar sus campos e isAccountant.
+- **Acción:** Armar un AuthUser con fromMap y consultar sus campos e isAccountant. Después convertirlo con toMap y volver a armarlo con fromMap.
 
-> **Resultado esperado:** AuthUser.fromMap conserva id, name, email, role y createdAt. isAccountant es verdadero con role `accountant` y falso con `user`.
+> **Resultado esperado:** AuthUser.fromMap conserva id, name, email, role y createdAt. isAccountant es verdadero con role `accountant` y falso con `user`. toMap devuelve el mismo mapa y `fromMap(toMap())` es la misma cuenta.
 
-Actualizado en S3-16: el contador se autoriza por correo (S3-14).
+Actualizado en S3-16: el contador se autoriza por correo (S3-14). Extendido en S4-08: la app guarda la cuenta en el dispositivo con toMap (`test/session_store_test.dart`).
 
 #### UT-50 · Enlace pendiente
 

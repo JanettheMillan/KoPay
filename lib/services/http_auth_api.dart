@@ -66,6 +66,22 @@ class HttpAuthApi implements AuthApi {
     return _parse(() => AuthUser.fromMap(body['user'] as Map<String, dynamic>));
   }
 
+  @override
+  Future<AuthSession> refresh(String refreshToken) async {
+    // Sin `Authorization`: se usa justo cuando el token de acceso venció.
+    final body = await _send(
+      'POST',
+      '/api/auth/refresh',
+      body: {'refreshToken': refreshToken},
+    );
+    return _parse(() => AuthSession.fromMap(body));
+  }
+
+  @override
+  Future<void> logout(String accessToken) async {
+    await _send('POST', '/api/auth/logout', token: accessToken);
+  }
+
   /// Cierra las conexiones si el cliente lo creó esta clase.
   void close() {
     if (_ownsClient) _client.close();
@@ -98,6 +114,8 @@ class HttpAuthApi implements AuthApi {
       throw const NetworkException();
     }
 
+    // `204 No Content` (logout, §3.4) no trae cuerpo.
+    if (response.statusCode == 204) return const {};
     final json = _decode(response);
     if (response.statusCode >= 200 && response.statusCode < 300) return json;
     throw ApiException.fromBody(response.statusCode, json);

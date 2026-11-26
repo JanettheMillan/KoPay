@@ -30,7 +30,7 @@ class _PendingApi implements AuthApi {
     return completer.future;
   }
 
-  // La pantalla de registro no usa estas dos (S4-07 las agregó a AuthApi).
+  // La pantalla de registro no usa estas (S4-07 y S4-08 las agregaron).
   @override
   Future<AuthSession> login({
     required String email,
@@ -39,6 +39,13 @@ class _PendingApi implements AuthApi {
 
   @override
   Future<AuthUser> me(String accessToken) => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> refresh(String refreshToken) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> logout(String accessToken) => throw UnimplementedError();
 }
 
 void main() {

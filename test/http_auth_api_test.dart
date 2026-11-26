@@ -2,8 +2,8 @@
 //
 // Sin red: package:http/testing.dart (MockClient) responde como la API.
 // CON-15 es el caso de docs/contrato-api-acceso.md (respuestas 400, 401,
-// 409 y sin red en Flutter). CLI-01 a CLI-14 son pruebas nuevas de esta
-// tarjeta, anotadas en el PR.
+// 409 y sin red en Flutter). CLI-01 a CLI-14 son pruebas nuevas de S4-07 y
+// CLI-15 a CLI-18 de S4-08 (renovar y cerrar sesión), anotadas en sus PR.
 
 import 'dart:async';
 import 'dart:convert';
@@ -320,6 +320,68 @@ void main() {
 
       expect(user.name, 'Begoña Núñez');
       expect(utf8.decode(requests.single.bodyBytes), contains('mañana2026'));
+    });
+  });
+
+  group('Renovar y cerrar sesión (S4-08)', () {
+    test('CLI-15 · HU-31 · refresh manda solo el refreshToken, sin '
+        'Authorization, y devuelve los tokens nuevos', () async {
+      final (:api, :requests) = _apiAnswering(
+        _json(200, {
+          'accessToken': 'acc-2',
+          'tokenType': 'Bearer',
+          'expiresIn': 900,
+          'refreshToken': 'ref-2',
+          'refreshExpiresIn': 2592000,
+          'user': _user,
+        }),
+      );
+
+      final session = await api.refresh('ref-1');
+
+      final request = requests.single;
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/auth/refresh');
+      expect(request.headers.containsKey('Authorization'), isFalse);
+      expect(jsonDecode(request.body), {'refreshToken': 'ref-1'});
+      expect(session.accessToken, 'acc-2');
+      expect(session.refreshToken, 'ref-2');
+    });
+
+    test('CLI-16 · HU-31 · refresh vencido o ya usado → 401 '
+        'UNAUTHENTICATED', () async {
+      final (:api, requests: _) = _apiAnswering(
+        _json(401, {
+          'error': 'Inicia sesión para continuar',
+          'code': 'UNAUTHENTICATED',
+        }),
+      );
+
+      await expectLater(
+        api.refresh('ref-usado'),
+        throwsA(_apiError(401, ApiErrorCode.unauthenticated)),
+      );
+    });
+
+    test('CLI-17 · HU-33 · logout manda el token como Bearer y acepta 204 sin '
+        'cuerpo', () async {
+      final (:api, :requests) = _apiAnswering(http.Response('', 204));
+
+      await api.logout('acc-1');
+
+      final request = requests.single;
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/auth/logout');
+      expect(request.headers['Authorization'], 'Bearer acc-1');
+    });
+
+    test('CLI-18 · HU-33 · logout sin red → NetworkException', () async {
+      final api = HttpAuthApi(
+        client: MockClient((_) async => throw http.ClientException('sin red')),
+        baseUrl: _base,
+      );
+
+      await expectLater(api.logout('acc-1'), throwsA(isA<NetworkException>()));
     });
   });
 
