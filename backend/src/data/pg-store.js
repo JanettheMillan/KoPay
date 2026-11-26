@@ -8,8 +8,11 @@ const { ERROR_CODES, HttpError } = require('../errors');
  * Capa de datos sobre PostgreSQL (S3-05). Tiene la misma interfaz que
  * `createMemoryStore`: `ping()`, así que la ruta de salud responde 503 si
  * la base no contesta (caso DB-05); `createUser`, `findUserByEmail` y
- * `findUserById` sobre la tabla `users`, y `createSession` y
- * `findSessionByTokenHash` sobre `sessions` (S3-09).
+ * `findUserById` sobre la tabla `users`; `createSession` y
+ * `findSessionByTokenHash` sobre `sessions` (S3-09), y los permisos de
+ * contador sobre `accountant_access` (S3-06): `createGrant`,
+ * `listActiveGrantsByUser`, `listActiveGrantsByAccountant`,
+ * `findActiveGrant`, `revokeGrant` y `listGrantsByUser`, con la misma interfaz que S4-05 usa en memoria.
  *
  * Diferencia con la memoria: aquí se guarda `passwordHash`, nunca la
  * contraseña. El servidor cambia a esta capa cuando S3-08 genere el hash.
@@ -25,6 +28,13 @@ const POOL_OPTIONS = Object.freeze({
 
 /** Código de PostgreSQL para una restricción única violada. */
 const UNIQUE_VIOLATION = '23505';
+
+/**
+ * Código de PostgreSQL para un texto que no es un `uuid` válido. Los ids
+ * de permisos llegan de la URL: uno mal formado equivale a uno que no
+ * existe, igual que en la capa en memoria.
+ */
+const INVALID_TEXT = '22P02';
 
 /**
  * Errores de conexión: la base no responde, no se encuentra o cortó la
@@ -84,6 +94,19 @@ function toSession(row) {
     revokedAt: row.revoked_at ? row.revoked_at.toISOString() : null,
   };
 }
+
+/** Fila de `accountant_access` con los nombres que usan los servicios. */
+function toGrant(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    accountantId: row.accountant_id,
+    grantedAt: row.granted_at.toISOString(),
+    revokedAt: row.revoked_at ? row.revoked_at.toISOString() : null,
+  };
+}
+
+const GRANT_COLUMNS = 'id, user_id, accountant_id, granted_at, revoked_at';
 
 function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
   if (!databaseUrl) throw new Error('Falta DATABASE_URL para PostgreSQL.');
@@ -175,6 +198,100 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
         [tokenHash],
       );
       return rows.length === 0 ? null : toSession(rows[0]);
+    },
+
+    /**
+     * Concede a `accountantId` acceso a las finanzas de `userId` (S3-06,
+     * S4-05). Si la pareja ya tiene un permiso vigente lo devuelve sin
+     * crear otro (índice único parcial `accountant_access_active_key`).
+     * Devuelve `{ grant, created }`. Los roles los revisa el servicio.
+     */
+    async createGrant({ userId, accountantId }) {
+      const { rows } = await query(
+        `INSERT INTO accountant_access (user_id, accountant_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, accountant_id) WHERE revoked_at IS NULL
+         DO NOTHING
+         RETURNING ${GRANT_COLUMNS}`,
+        [userId, accountantId],
+      );
+      if (rows.length > 0) return { grant: toGrant(rows[0]), created: true };
+      const existing = await query(
+        `SELECT ${GRANT_COLUMNS} FROM accountant_access
+         WHERE user_id = $1 AND accountant_id = $2 AND revoked_at IS NULL`,
+        [userId, accountantId],
+      );
+      return { grant: toGrant(existing.rows[0]), created: false };
+    },
+
+    /** Permisos vigentes que dio `userId`, del más antiguo al más nuevo. */
+    async listActiveGrantsByUser(userId) {
+      const { rows } = await query(
+        `SELECT ${GRANT_COLUMNS} FROM accountant_access
+         WHERE user_id = $1 AND revoked_at IS NULL
+         ORDER BY granted_at, id`,
+        [userId],
+      );
+      return rows.map(toGrant);
+    },
+
+    /**
+     * Permisos vigentes que recibió `accountantId` (S4-06), del más
+     * antiguo al más nuevo. Es la lista de clientes del contador y usa el
+     * índice parcial `accountant_access_accountant_idx`.
+     */
+    async listActiveGrantsByAccountant(accountantId) {
+      const { rows } = await query(
+        `SELECT ${GRANT_COLUMNS} FROM accountant_access
+         WHERE accountant_id = $1 AND revoked_at IS NULL
+         ORDER BY granted_at, id`,
+        [accountantId],
+      );
+      return rows.map(toGrant);
+    },
+
+    /** Permiso vigente entre `userId` y `accountantId`, o `null`. */
+    async findActiveGrant({ userId, accountantId }) {
+      try {
+        const { rows } = await query(
+          `SELECT ${GRANT_COLUMNS} FROM accountant_access
+           WHERE user_id = $1 AND accountant_id = $2 AND revoked_at IS NULL`,
+          [userId, accountantId],
+        );
+        return rows.length === 0 ? null : toGrant(rows[0]);
+      } catch (err) {
+        if (err.code === INVALID_TEXT) return null;
+        throw err;
+      }
+    },
+
+    /**
+     * Revoca el permiso `grantId` solo si es de `userId` y sigue vigente.
+     * Devuelve `true` si lo revocó. No borra nada: llena `revoked_at`.
+     */
+    async revokeGrant({ grantId, userId }) {
+      try {
+        const { rowCount } = await query(
+          `UPDATE accountant_access SET revoked_at = now()
+           WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+          [grantId, userId],
+        );
+        return rowCount === 1;
+      } catch (err) {
+        if (err.code === INVALID_TEXT) return false;
+        throw err;
+      }
+    },
+
+    /** Todos los permisos de `userId`, incluidos los revocados (historial). */
+    async listGrantsByUser(userId) {
+      const { rows } = await query(
+        `SELECT ${GRANT_COLUMNS} FROM accountant_access
+         WHERE user_id = $1
+         ORDER BY granted_at, id`,
+        [userId],
+      );
+      return rows.map(toGrant);
     },
 
     /** Cierra las conexiones (pruebas y apagado del servidor). */
