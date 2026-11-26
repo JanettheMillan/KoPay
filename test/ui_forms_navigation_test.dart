@@ -279,11 +279,7 @@ void main() {
     });
   });
 
-  test(
-    'UI-07 · Pago inválido de deuda',
-    () {},
-    skip: 'Bloqueado: las deudas no existen en el Sprint 1 (HU-22).',
-  );
+  // UI-07 se ejecuta desde S2-17 en cards_debts_payments_flows_test.dart.
 
   test(
     'FUT-25 · Entrada a vista de contador',
