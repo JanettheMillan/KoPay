@@ -99,6 +99,19 @@ class AppStrings {
     required this.saveError,
     required this.removeError,
     required this.debtGone,
+    required this.payCard,
+    required this.payDebt,
+    required this.cardUsed,
+    required this.payAmount,
+    required this.payAll,
+    required this.payDate,
+    required this.payNote,
+    required this.recordPayment,
+    required this.paymentSaved,
+    required this.paymentsHeader,
+    required this.noPayments,
+    required this.nothingToPay,
+    required this.paymentsKept,
     required this.registerTitle,
     required this.registerSubtitle,
     required this.nameLabel,
@@ -214,6 +227,21 @@ class AppStrings {
   final String saveError;
   final String removeError;
   final String debtGone;
+
+  // Pagos de tarjeta y deuda (S2-15).
+  final String payCard;
+  final String payDebt;
+  final String cardUsed;
+  final String payAmount;
+  final String payAll;
+  final String payDate;
+  final String payNote;
+  final String recordPayment;
+  final String paymentSaved;
+  final String paymentsHeader;
+  final String noPayments;
+  final String nothingToPay;
+  final String paymentsKept;
   // Crear cuenta (S3-10). Los errores de cada campo vienen del contrato
   // de la API y están en español (AuthValidators).
   final String registerTitle;
@@ -327,6 +355,19 @@ class AppStrings {
     saveError: 'No se pudo guardar. Intenta de nuevo.',
     removeError: 'No se pudo eliminar. Intenta de nuevo.',
     debtGone: 'La deuda ya no existe.',
+    payCard: 'Pagar tarjeta',
+    payDebt: 'Pagar deuda',
+    cardUsed: 'Saldo usado',
+    payAmount: 'Monto',
+    payAll: 'Pagar todo',
+    payDate: 'Fecha',
+    payNote: 'Nota (opcional)',
+    recordPayment: 'Registrar pago',
+    paymentSaved: 'Pago registrado',
+    paymentsHeader: 'PAGOS',
+    noPayments: 'Sin pagos registrados.',
+    nothingToPay: 'No hay saldo por pagar.',
+    paymentsKept: 'Sus pagos se conservan en Movimientos.',
     registerTitle: 'Crear cuenta',
     registerSubtitle: 'Guarda tus finanzas en tu cuenta de KoPay.',
     nameLabel: 'Nombre',
@@ -434,6 +475,19 @@ class AppStrings {
     saveError: 'Could not save. Try again.',
     removeError: 'Could not delete. Try again.',
     debtGone: 'This debt no longer exists.',
+    payCard: 'Pay card',
+    payDebt: 'Pay debt',
+    cardUsed: 'Used balance',
+    payAmount: 'Amount',
+    payAll: 'Pay all',
+    payDate: 'Date',
+    payNote: 'Note (optional)',
+    recordPayment: 'Record payment',
+    paymentSaved: 'Payment recorded',
+    paymentsHeader: 'PAYMENTS',
+    noPayments: 'No payments yet.',
+    nothingToPay: 'Nothing left to pay.',
+    paymentsKept: 'Its payments stay in Activity.',
     registerTitle: 'Create account',
     registerSubtitle: 'Keep your finances in your KoPay account.',
     nameLabel: 'Name',

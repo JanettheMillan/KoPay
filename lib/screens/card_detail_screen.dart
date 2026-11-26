@@ -4,14 +4,36 @@ import 'package:provider/provider.dart';
 import '../models/card_model.dart';
 import '../providers/card_provider.dart';
 import '../utils/app_colors.dart';
+import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
+import '../utils/validators.dart';
 import '../widgets/add_card_sheet.dart';
+import '../widgets/pay_sheet.dart';
 
 /// Abre el detalle de la tarjeta con ese [cardId].
 Future<void> openCardDetail(BuildContext context, int cardId) {
   return Navigator.of(context).push(
     MaterialPageRoute<void>(builder: (_) => CardDetailScreen(cardId: cardId)),
   );
+}
+
+/// Abre el formulario de pago de [card] (S2-15, HU-16, HU-17).
+Future<void> payCard(BuildContext context, CardModel card) async {
+  final provider = context.read<CardProvider>();
+  final messenger = ScaffoldMessenger.of(context);
+  final s = AppStrings.read(context);
+  final saved = await showPaySheet(
+    context,
+    title: s.payCard,
+    balanceLabel: s.cardUsed,
+    balance: card.usedBalance,
+    check: Validators.checkCardPayment,
+    onPay: (amount, date, note) =>
+        provider.pay(card.id!, amount, date: date, note: note),
+  );
+  if (saved != null) {
+    messenger.showSnackBar(SnackBar(content: Text(s.paymentSaved)));
+  }
 }
 
 /// Detalle de una tarjeta (HU-13 a HU-15): límite, saldo usado, crédito
@@ -43,7 +65,8 @@ class CardDetailScreen extends StatelessWidget {
         title: const Text('¿Eliminar tarjeta?'),
         content: Text(
           'Se eliminará "${card.name}" de ${card.bank}. '
-          'Esta acción no se puede deshacer.',
+          'Esta acción no se puede deshacer. '
+          '${AppStrings.read(context).paymentsKept}',
         ),
         actions: [
           TextButton(
@@ -182,6 +205,15 @@ class _CardDetailBody extends StatelessWidget {
           valueKey: 'card-minimum-value',
           isLast: true,
         ),
+        _PayButton(
+          buttonKey: 'card-pay',
+          enabled: card.usedBalance > 0,
+          onPressed: () => payCard(context, card),
+        ),
+        PaymentsList(
+          load: () => context.read<CardProvider>().paymentsOf(card.id!),
+          refreshKey: card.usedBalance,
+        ),
       ],
     );
   }
@@ -226,6 +258,50 @@ class _DetailRow extends StatelessWidget {
               color: AppColors.text,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Botón "Registrar pago"; sin saldo por pagar se desactiva y lo dice.
+class _PayButton extends StatelessWidget {
+  final String buttonKey;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  const _PayButton({
+    required this.buttonKey,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              key: Key(buttonKey),
+              onPressed: enabled ? onPressed : null,
+              icon: const Icon(Icons.payments_outlined, size: 18),
+              label: Text(s.recordPayment),
+            ),
+          ),
+          if (!enabled)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                s.nothingToPay,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: AppColors.text3),
+              ),
+            ),
         ],
       ),
     );

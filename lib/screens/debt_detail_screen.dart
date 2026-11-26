@@ -6,8 +6,10 @@ import '../providers/debt_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
+import '../utils/validators.dart';
 import '../widgets/add_debt_sheet.dart';
 import '../widgets/debts_section.dart';
+import '../widgets/pay_sheet.dart';
 
 /// Abre el detalle de la deuda con ese [debtId].
 Future<void> openDebtDetail(BuildContext context, int debtId) {
@@ -16,9 +18,28 @@ Future<void> openDebtDetail(BuildContext context, int debtId) {
   );
 }
 
+/// Abre el formulario de pago de [debt] (S2-15, HU-20, HU-22).
+Future<void> payDebt(BuildContext context, DebtModel debt) async {
+  final provider = context.read<DebtProvider>();
+  final messenger = ScaffoldMessenger.of(context);
+  final s = AppStrings.read(context);
+  final saved = await showPaySheet(
+    context,
+    title: s.payDebt,
+    balanceLabel: s.debtRemaining,
+    balance: debt.remainingBalance,
+    check: Validators.checkDebtPayment,
+    onPay: (amount, date, note) =>
+        provider.pay(debt.id!, amount, date: date, note: note),
+  );
+  if (saved != null) {
+    messenger.showSnackBar(SnackBar(content: Text(s.paymentSaved)));
+  }
+}
+
 /// Detalle de una deuda (HU-19): saldo restante, mensualidad, próximo
-/// vencimiento y estado, con las acciones Editar y Eliminar. El pago se
-/// agrega en S2-15.
+/// vencimiento y estado, con las acciones Editar y Eliminar, y el pago
+/// con su historial (S2-15).
 ///
 /// Escucha [DebtProvider], así que después de editar muestra los datos
 /// nuevos. Si la deuda se elimina, la pantalla se cierra.
@@ -46,7 +67,9 @@ class DebtDetailScreen extends StatelessWidget {
       context: context,
       builder: (dialog) => AlertDialog(
         title: Text(s.deleteDebtTitle),
-        content: Text(AppStrings.fill(s.deleteDebtBody, [debt.name])),
+        content: Text(
+          '${AppStrings.fill(s.deleteDebtBody, [debt.name])} ${s.paymentsKept}',
+        ),
         actions: [
           TextButton(
             key: const Key('debt-delete-cancel'),
@@ -155,6 +178,33 @@ class _DebtDetailBody extends StatelessWidget {
           valueKey: 'debt-status-value',
           color: status.color,
           isLast: true,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              key: const Key('debt-pay'),
+              onPressed: debt.remainingBalance > 0
+                  ? () => payDebt(context, debt)
+                  : null,
+              icon: const Icon(Icons.payments_outlined, size: 18),
+              label: Text(s.recordPayment),
+            ),
+          ),
+        ),
+        if (debt.remainingBalance <= 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              s.nothingToPay,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: AppColors.text3),
+            ),
+          ),
+        PaymentsList(
+          load: () => context.read<DebtProvider>().paymentsOf(debt.id!),
+          refreshKey: debt.remainingBalance,
         ),
       ],
     );

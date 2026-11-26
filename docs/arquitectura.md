@@ -36,7 +36,7 @@ flowchart LR
 | Movimientos e ingresos | `screens/movements_screen.dart`, `widgets/add_movement_sheet.dart`, `widgets/add_income_sheet.dart` | Historial que junta gastos e ingresos (`buildHistory`), alta y edición. |
 | Categorías | `widgets/category_picker_sheet.dart` | Selector con búsqueda, alta, renombrado y borrado; `categoryEmoji`. |
 | Ajustes | `screens/settings_screen.dart` | Moneda, idioma, exportar XLSX, importar CSV y borrar datos. |
-| Tarjetas, deudas y pagos | `models/card_model.dart`, `models/debt_model.dart`, `providers/card_provider.dart`, `providers/debt_provider.dart`, `widgets/cards_section.dart`, `widgets/add_card_sheet.dart`, `screens/card_detail_screen.dart`, `widgets/debts_section.dart`, `widgets/add_debt_sheet.dart`, `screens/debt_detail_screen.dart` | Modelo, tabla y estado de tarjetas y deudas; secciones en Inicio, formularios y detalle de tarjeta (S2-13) y de deuda (S2-14); pagos en `DatabaseHelper`. Pantallas de pago *pendientes*: S2-15. |
+| Tarjetas, deudas y pagos | `models/card_model.dart`, `models/debt_model.dart`, `providers/card_provider.dart`, `providers/debt_provider.dart`, `widgets/cards_section.dart`, `widgets/add_card_sheet.dart`, `screens/card_detail_screen.dart`, `widgets/debts_section.dart`, `widgets/add_debt_sheet.dart`, `screens/debt_detail_screen.dart` | Modelo, tabla y estado de tarjetas y deudas; secciones en Inicio, formularios y detalle de tarjeta (S2-13) y de deuda (S2-14); pagos en `DatabaseHelper`; formulario de pago e historial de pagos en cada detalle (S2-15, `widgets/pay_sheet.dart`). |
 | Estado | `lib/providers/` | Carga, validación, escritura y aviso a la interfaz. |
 | Persistencia | `database/database_helper.dart` | Tablas, migraciones y operaciones SQLite. |
 | Respaldo | `services/backup_service.dart`, `services/backup_platform.dart` | XLSX, validación del CSV y acceso a archivos del teléfono. |
@@ -51,7 +51,7 @@ flowchart LR
 | Inicio | `MovementProvider` e `IncomeProvider` | `forMonth`, `expensesForMonth`, `entriesForMonth` y `totalForMonth` del mes elegido. |
 | Tarjetas (S2-13): sección de Inicio, formulario y detalle | `CardProvider` | `cards`, `add`, `update` y `delete` (lanzan `ValidationException` si la tarjeta no es válida), `byId`. `totalLimit`, `totalUsed` y `totalAvailable` quedan para el resumen. |
 | Deudas (S2-14): sección de Inicio, formulario y detalle | `DebtProvider` (S2-11) | `debts` (ordenadas por vencimiento), `add`, `update` y `delete` (lanzan `ValidationException` si la deuda no es válida), `byId`. El provider pone el estado: saldo cero es pagada. |
-| Pagos (S2-15, *pendiente*) | Proveedores de tarjetas y deudas | Usarán `insertCardPayment` e `insertDebtPayment`, y después recargarán tarjetas, deudas y movimientos. |
+| Pagos (S2-15): `PaySheet` desde el detalle de tarjeta o deuda | `CardProvider` y `DebtProvider` | `pay` (lanza `ValidationException` si el monto es cero o supera el saldo) y `paymentsOf`. Después del pago, la hoja recarga `MovementProvider`. Borrar una tarjeta o deuda conserva sus pagos en Movimientos y solo los desliga (`card_id` o `debt_id` en `NULL`). |
 | Categorías | `CategoryProvider` | `search`, `validate`, `add`, `rename`, `remove`. |
 | Ajustes | `SettingsProvider` | `setCurrency` y `setLanguage`. Cambian `FormatUtils` y `AppStrings` en toda la app. |
 | Importar o borrar datos | `DatabaseHelper` directo | `replaceFinancialData` y `deleteFinancialData`; después se llama `load()` en cada proveedor. |

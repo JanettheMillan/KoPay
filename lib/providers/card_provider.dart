@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../database/database_helper.dart';
 import '../models/card_model.dart';
+import '../models/movement_model.dart';
 import '../utils/validators.dart';
 
 /// Estado de las tarjetas de crédito para las pantallas (HU-13 a HU-15).
@@ -64,6 +65,45 @@ class CardProvider extends ChangeNotifier {
     await _db.deleteCard(id);
     await _reload();
   }
+
+  /// Registra un pago de [amount] a la tarjeta [cardId] (HU-16).
+  ///
+  /// Guarda un movimiento de tipo `payment` y descuenta el importe del
+  /// saldo usado en una sola transacción, así que sube el crédito
+  /// disponible. Devuelve el movimiento guardado.
+  ///
+  /// El pago también es un movimiento: quien lo registra debe recargar
+  /// `MovementProvider` para que aparezca en Movimientos.
+  ///
+  /// Lanza [ValidationException] si el importe no es mayor que cero o
+  /// supera el saldo usado (HU-17), y [ArgumentError] si la tarjeta no
+  /// existe. En esos casos no cambia nada.
+  Future<Movement> pay(
+    int cardId,
+    double amount, {
+    DateTime? date,
+    String? note,
+  }) async {
+    final card = byId(cardId);
+    if (card == null) {
+      throw ArgumentError.value(cardId, 'cardId', 'La tarjeta no existe');
+    }
+    final error = Validators.checkCardPayment(amount, card.usedBalance);
+    if (error != null) throw ValidationException(error);
+
+    final payment = await _db.insertCardPayment(
+      cardId: cardId,
+      amount: amount,
+      date: date ?? DateTime.now(),
+      note: note,
+    );
+    await _reload();
+    return payment;
+  }
+
+  /// Pagos registrados a la tarjeta [cardId], del más reciente al más
+  /// antiguo.
+  Future<List<Movement>> paymentsOf(int cardId) => _db.getCardPayments(cardId);
 
   /// Tarjeta con ese [id], o `null` si no está en la lista.
   CardModel? byId(int id) {
