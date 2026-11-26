@@ -72,6 +72,33 @@ class AppStrings {
     required this.viewMovements,
     required this.historyTitle,
     required this.readOnly,
+    required this.debtsHeader,
+    required this.noDebts,
+    required this.addDebt,
+    required this.debtDue,
+    required this.debtPaid,
+    required this.debtPending,
+    required this.debtOverdue,
+    required this.debtTitle,
+    required this.newDebt,
+    required this.editDebt,
+    required this.debtName,
+    required this.debtNameHint,
+    required this.debtMonthly,
+    required this.debtRemaining,
+    required this.debtDueDate,
+    required this.debtStatus,
+    required this.save,
+    required this.saveChanges,
+    required this.debtSaved,
+    required this.debtDeleted,
+    required this.deleteDebtTitle,
+    required this.deleteDebtBody,
+    required this.edit,
+    required this.remove,
+    required this.saveError,
+    required this.removeError,
+    required this.debtGone,
   });
 
   final String navHome;
@@ -147,6 +174,35 @@ class AppStrings {
   final String historyTitle;
   final String readOnly;
 
+  // Deudas: sección de Inicio, formulario y detalle (S2-14).
+  final String debtsHeader;
+  final String noDebts;
+  final String addDebt;
+  final String debtDue;
+  final String debtPaid;
+  final String debtPending;
+  final String debtOverdue;
+  final String debtTitle;
+  final String newDebt;
+  final String editDebt;
+  final String debtName;
+  final String debtNameHint;
+  final String debtMonthly;
+  final String debtRemaining;
+  final String debtDueDate;
+  final String debtStatus;
+  final String save;
+  final String saveChanges;
+  final String debtSaved;
+  final String debtDeleted;
+  final String deleteDebtTitle;
+  final String deleteDebtBody;
+  final String edit;
+  final String remove;
+  final String saveError;
+  final String removeError;
+  final String debtGone;
+
   static const AppStrings es = AppStrings._(
     navHome: 'Inicio',
     navMovements: 'Movimientos',
@@ -218,6 +274,33 @@ class AppStrings {
     viewMovements: 'Ver movimientos',
     historyTitle: 'Movimientos',
     readOnly: 'Solo lectura: no se puede crear, editar ni borrar.',
+    debtsHeader: 'DEUDAS',
+    noDebts: 'Aún no registras deudas.',
+    addDebt: 'Agregar deuda',
+    debtDue: 'Vence el {a}',
+    debtPaid: 'Pagada',
+    debtPending: 'Pendiente',
+    debtOverdue: 'Vencida',
+    debtTitle: 'Deuda',
+    newDebt: 'Nueva deuda',
+    editDebt: 'Editar deuda',
+    debtName: 'Nombre',
+    debtNameHint: 'Ej. Préstamo auto',
+    debtMonthly: 'Mensualidad',
+    debtRemaining: 'Saldo restante',
+    debtDueDate: 'Próximo vencimiento',
+    debtStatus: 'Estado',
+    save: 'Guardar',
+    saveChanges: 'Guardar cambios',
+    debtSaved: 'Deuda guardada',
+    debtDeleted: 'Deuda eliminada',
+    deleteDebtTitle: '¿Eliminar deuda?',
+    deleteDebtBody: 'Se eliminará "{a}". Esta acción no se puede deshacer.',
+    edit: 'Editar',
+    remove: 'Eliminar',
+    saveError: 'No se pudo guardar. Intenta de nuevo.',
+    removeError: 'No se pudo eliminar. Intenta de nuevo.',
+    debtGone: 'La deuda ya no existe.',
   );
 
   static const AppStrings en = AppStrings._(
@@ -286,6 +369,33 @@ class AppStrings {
     viewMovements: 'View activity',
     historyTitle: 'Activity',
     readOnly: 'Read only: nothing can be created, edited or deleted.',
+    debtsHeader: 'DEBTS',
+    noDebts: 'No debts yet.',
+    addDebt: 'Add debt',
+    debtDue: 'Due {a}',
+    debtPaid: 'Paid',
+    debtPending: 'Pending',
+    debtOverdue: 'Overdue',
+    debtTitle: 'Debt',
+    newDebt: 'New debt',
+    editDebt: 'Edit debt',
+    debtName: 'Name',
+    debtNameHint: 'e.g. Car loan',
+    debtMonthly: 'Monthly payment',
+    debtRemaining: 'Remaining balance',
+    debtDueDate: 'Next due date',
+    debtStatus: 'Status',
+    save: 'Save',
+    saveChanges: 'Save changes',
+    debtSaved: 'Debt saved',
+    debtDeleted: 'Debt deleted',
+    deleteDebtTitle: 'Delete debt?',
+    deleteDebtBody: '"{a}" will be deleted. This cannot be undone.',
+    edit: 'Edit',
+    remove: 'Delete',
+    saveError: 'Could not save. Try again.',
+    removeError: 'Could not delete. Try again.',
+    debtGone: 'This debt no longer exists.',
   );
 
   /// Reemplaza `{a}`, `{b}`, `{c}`, `{d}` de [template] por [values].

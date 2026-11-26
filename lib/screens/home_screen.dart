@@ -9,6 +9,7 @@ import '../utils/app_strings.dart';
 import '../utils/format_utils.dart';
 import '../widgets/cards_section.dart';
 import '../widgets/category_picker_sheet.dart';
+import '../widgets/debts_section.dart';
 import '../widgets/move_row.dart';
 import 'movements_screen.dart' show HistoryEntry, buildHistory;
 
@@ -79,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _MovementsSection(moves: monthMoves),
               const CardsSection(),
+              const DebtsSection(),
             ],
           ),
         ),
