@@ -25,14 +25,16 @@ function createMemoryStore({ now = () => new Date() } = {}) {
      * `createdAt`. Devuelve `null` si ya hay una cuenta con ese correo,
      * igual que la restricción única de la tabla `users`.
      * `email` ya debe venir normalizado (sin espacios y en minúsculas).
+     * Solo guarda `passwordHash` (columna `password_hash`), nunca la
+     * contraseña (S3-08).
      */
-    async createUser({ name, email, password, role }) {
+    async createUser({ name, email, passwordHash, role }) {
       if (usersByEmail.has(email)) return null;
       const user = {
         id: randomUUID(),
         name,
         email,
-        password,
+        passwordHash,
         role,
         createdAt: now().toISOString(),
       };
