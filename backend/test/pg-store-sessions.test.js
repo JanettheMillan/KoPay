@@ -73,4 +73,42 @@ describe('pg-store · sesiones', () => {
     expect(vacio.queries[1].text).toMatch(/FROM users WHERE id = \$1/);
     expect(vacio.queries[1].params).toEqual(['u9']);
   });
+
+  test('LOG-12 · HU-31 · si la base no responde, las consultas dan 503 UNAVAILABLE', async () => {
+    class DownPool {
+      on() {}
+      async query() {
+        const err = new Error('connect ECONNREFUSED 10.0.0.5:5432');
+        err.code = 'ECONNREFUSED';
+        throw err;
+      }
+      async end() {}
+    }
+    const store = createPgStore({ databaseUrl: 'postgres://prueba', PoolClass: DownPool });
+
+    for (const llamada of [
+      () => store.findUserByEmail('ana@mail.com'),
+      () => store.findUserById('u1'),
+      () => store.findSessionByTokenHash('abc'),
+      () => store.createSession({ userId: 'u1', tokenHash: 'abc', expiresAt: vence }),
+    ]) {
+      await expect(llamada()).rejects.toMatchObject({ status: 503, code: 'UNAVAILABLE' });
+      await expect(llamada()).rejects.not.toThrow('5432');
+    }
+    expect(await store.ping()).toBe(false);
+  });
+
+  test('LOG-13 · HU-31 · un error que no es de conexión no se disfraza de 503', async () => {
+    class BadPool {
+      on() {}
+      async query() {
+        const err = new Error('syntax error');
+        err.code = '42601';
+        throw err;
+      }
+      async end() {}
+    }
+    const store = createPgStore({ databaseUrl: 'postgres://prueba', PoolClass: BadPool });
+    await expect(store.findUserById('u1')).rejects.toMatchObject({ code: '42601' });
+  });
 });

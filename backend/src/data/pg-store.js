@@ -2,6 +2,8 @@
 
 const { Pool } = require('pg');
 
+const { ERROR_CODES, HttpError } = require('../errors');
+
 /**
  * Capa de datos sobre PostgreSQL (S3-05). Tiene la misma interfaz que
  * `createMemoryStore`: `ping()`, así que la ruta de salud responde 503 si
@@ -23,6 +25,41 @@ const POOL_OPTIONS = Object.freeze({
 
 /** Código de PostgreSQL para una restricción única violada. */
 const UNIQUE_VIOLATION = '23505';
+
+/**
+ * Errores de conexión: la base no responde, no se encuentra o cortó la
+ * conexión. Clase 08 (conexión) y 57P0x (servidor apagándose) de
+ * PostgreSQL, más los errores de red de Node.
+ */
+const UNAVAILABLE_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+  '57P01',
+  '57P02',
+  '57P03',
+]);
+
+function isUnavailable(err) {
+  if (!err) return false;
+  if (UNAVAILABLE_CODES.has(err.code)) return true;
+  if (typeof err.code === 'string' && err.code.startsWith('08')) return true;
+  return /timeout exceeded when trying to connect|Connection terminated/i.test(
+    err.message ?? '',
+  );
+}
+
+/**
+ * Si la base no responde, el contrato pide `503 UNAVAILABLE` (sección 2),
+ * no un 500. El mensaje nunca muestra la cadena de conexión.
+ */
+function unavailable() {
+  return new HttpError(503, 'El servicio no está disponible. Inténtalo de nuevo.', {
+    code: ERROR_CODES.UNAVAILABLE,
+  });
+}
 
 /** Fila de `users` con los nombres que usan los servicios. */
 function toUser(row) {
@@ -54,6 +91,16 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
   // Un cliente inactivo que pierde la conexión no debe tumbar la API.
   pool.on('error', () => {});
 
+  /** `pool.query` que convierte una caída de la base en 503. */
+  async function query(text, params) {
+    try {
+      return await pool.query(text, params);
+    } catch (err) {
+      if (isUnavailable(err)) throw unavailable();
+      throw err;
+    }
+  }
+
   return {
     kind: 'postgres',
     pool,
@@ -73,7 +120,7 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
      */
     async createUser({ name, email, passwordHash, role }) {
       try {
-        const { rows } = await pool.query(
+        const { rows } = await query(
           `INSERT INTO users (name, email, password_hash, role)
            VALUES ($1, $2, $3, $4)
            RETURNING id, name, email, password_hash, role, created_at`,
@@ -88,7 +135,7 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
 
     /** Cuenta con ese correo normalizado, o `null` si no existe. */
     async findUserByEmail(email) {
-      const { rows } = await pool.query(
+      const { rows } = await query(
         `SELECT id, name, email, password_hash, role, created_at
          FROM users WHERE email = $1`,
         [email],
@@ -98,7 +145,7 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
 
     /** Cuenta con ese `id`, o `null` si no existe. */
     async findUserById(id) {
-      const { rows } = await pool.query(
+      const { rows } = await query(
         `SELECT id, name, email, password_hash, role, created_at
          FROM users WHERE id = $1`,
         [id],
@@ -111,7 +158,7 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
      * claro lo tiene únicamente la app.
      */
     async createSession({ userId, tokenHash, expiresAt }) {
-      const { rows } = await pool.query(
+      const { rows } = await query(
         `INSERT INTO sessions (user_id, token_hash, expires_at)
          VALUES ($1, $2, $3)
          RETURNING id, user_id, token_hash, created_at, expires_at, revoked_at`,
@@ -122,7 +169,7 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
 
     /** Sesión con ese hash de token, o `null` si no existe. */
     async findSessionByTokenHash(tokenHash) {
-      const { rows } = await pool.query(
+      const { rows } = await query(
         `SELECT id, user_id, token_hash, created_at, expires_at, revoked_at
          FROM sessions WHERE token_hash = $1`,
         [tokenHash],
@@ -137,4 +184,4 @@ function createPgStore({ databaseUrl, PoolClass = Pool } = {}) {
   };
 }
 
-module.exports = { POOL_OPTIONS, createPgStore };
+module.exports = { POOL_OPTIONS, createPgStore, isUnavailable };
