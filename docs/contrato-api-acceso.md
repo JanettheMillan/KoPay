@@ -272,12 +272,15 @@ Requiere `Authorization: Bearer <accessToken>` de una cuenta `accountant`. Cada 
 | :--- | :--- | :--- |
 | `GET /api/clients` | `200 { "clients": [{ "id", "name", "email", "grantedAt" }] }`, solo personas con permiso vigente, del permiso más antiguo al más nuevo | — |
 | `GET /api/clients/:userId` | `200 { "client": { "id", "name", "email", "grantedAt" } }` | `403 FORBIDDEN` "No tienes acceso a los datos de esta persona" |
+| `GET /api/clients/:userId/summary?month=AAAA-MM` | `200 { "month", "income", "expenses", "payments", "balance" }` | `400 VALIDATION_FAILED` con `fields.month`; `403` |
+| `GET /api/clients/:userId/movements?month=AAAA-MM` | `200 { "movements": [ … ], "incomes": [ … ] }`, cada lista del más reciente al más antiguo, con la forma de §3.12 y §3.13 | `400 VALIDATION_FAILED` con `fields.month`; `403` |
 
 - El `403` de `:userId` es el mismo si la persona no autorizó a este contador, si revocó, si no existe o si el id está mal formado (ROL-08).
 - El permiso se consulta en cada petición: tras revocar, la siguiente consulta ya responde `403` y la persona sale de la lista.
 - Cualquier `POST`, `PUT`, `PATCH` o `DELETE` bajo `/api/clients` responde `403` con el mismo mensaje (HU-42).
 - Una cuenta `user` recibe `403` en todas estas rutas.
-- S5-03 agrega `GET /api/clients/:userId/summary` y `GET /api/clients/:userId/movements` (sección 7 de las reglas) detrás del mismo guardia.
+- **Resumen y movimientos (S5-03):** van detrás del mismo guardia y leen solo los datos de `:userId` en ese mes (UTC). `month` es obligatorio; sin él o con otro formato, `400` con `fields.month` "Escribe el mes como AAAA-MM". El `403` se revisa antes que el mes.
+- El resumen sigue la regla de Inicio (HU-09): `income` suma los ingresos y las entradas positivas; `expenses`, los movimientos negativos que no son pagos; `payments`, los pagos (`type: "payment"`) aparte, para no contarlos dos veces; y `balance = income − expenses − payments`. Se suma en centavos.
 
 ### 3.11 `GET /api/exchange-rates` · Tipo de cambio (HU-35, S5-06)
 
@@ -401,6 +404,7 @@ Campos de `POST` y `PUT` (se revisan todos a la vez, igual que en la app):
 | `POST /api/auth/reset` | No | S4-19 | `204` y cierra todas las sesiones | `VALIDATION_FAILED`, `TOO_MANY_ATTEMPTS` |
 | `GET /api/clients` | Sí, `accountant` | S4-06 | `200 { clients }` | `FORBIDDEN` |
 | `GET /api/clients/:userId` | Sí, `accountant` con permiso | S4-06 | `200 { client }` | `FORBIDDEN` |
+| `GET /api/clients/:userId/summary` y `/movements` `?month=AAAA-MM` | Sí, `accountant` con permiso | S5-03 | `200 { month, income, expenses, payments, balance }` y `200 { movements, incomes }` | `VALIDATION_FAILED`, `FORBIDDEN` |
 | `GET`, `POST /api/movements` y `GET`, `PUT`, `DELETE /api/movements/:id` | Sí, `user` | S5-01 | `200`/`201 { movement(s) }`, `204` al borrar | `VALIDATION_FAILED`, `NOT_FOUND`, `VERSION_CONFLICT`, `FORBIDDEN` |
 | `GET`, `POST /api/incomes` y `GET`, `PUT`, `DELETE /api/incomes/:id` | Sí, `user` | S5-02 | `200`/`201 { income(s) }`, `204` al borrar | `VALIDATION_FAILED`, `NOT_FOUND`, `VERSION_CONFLICT`, `FORBIDDEN` |
 | `GET /api/exchange-rates` | Sí, cualquier rol | S5-06 | `200 { base, quote, rate, date, source }` | `UNAVAILABLE` |

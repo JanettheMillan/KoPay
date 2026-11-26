@@ -11,6 +11,7 @@ const { incomeRoutes } = require('./routes/incomes.routes');
 const { movementRoutes } = require('./routes/movements.routes');
 const { createAccountantAccessService } = require('./services/accountant-access.service');
 const { createAuthService } = require('./services/auth.service');
+const { createClientFinanceService } = require('./services/client-finance.service');
 const { createExchangeRateService } = require('./services/exchange-rate.service');
 const { createHealthService } = require('./services/health.service');
 const { createIncomeService } = require('./services/income.service');
@@ -56,6 +57,8 @@ function createApp({
     }),
     recoveryService: createRecoveryService({ store, mailer, secret: config.jwtSecret, now }),
     accountantAccessService: createAccountantAccessService({ store }),
+    // Consultas del contador sobre quien lo autorizó (S5-03).
+    clientFinanceService: createClientFinanceService({ store }),
     exchangeRateService,
     // El rol se lee de la base en cada petición (S4-04).
     rbac: createRbac({

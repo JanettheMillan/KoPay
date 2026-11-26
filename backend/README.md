@@ -201,6 +201,16 @@ curl -s -X POST http://localhost:3000/api/incomes -H "Authorization: Bearer <acc
 
 Después de actualizar `develop`, corre `npm run migrate`: S5-02 agrega `006_incomes.sql`.
 
+### Consultas del contador (S5-03)
+
+Un contador con permiso vigente lee el mes de quien lo autorizó, solo lectura. Detalle en la sección 3.10 del contrato.
+
+- `GET /api/clients/:userId/summary?month=AAAA-MM`: `{ month, income, expenses, payments, balance }`, con los pagos aparte como en Inicio.
+- `GET /api/clients/:userId/movements?month=AAAA-MM`: `{ movements, incomes }` de ese mes.
+- Sin permiso, revocado o con un id que no existe: `403` igual. Al revocar, la siguiente consulta ya responde `403`.
+
+No agrega migraciones.
+
 ### Límite de intentos del login (S4-13)
 
 Después de 10 intentos fallidos con el mismo correo en 15 minutos, `POST /api/auth/login` responde `429 TOO_MANY_ATTEMPTS`, aunque la contraseña sea correcta, hasta que pase la ventana. Un login correcto reinicia el contador. El contador vive en memoria (`src/services/login-throttle.js`): se reinicia con la API. Revisión completa en `docs/revision-seguridad-s4-13.md`.
