@@ -883,7 +883,7 @@ Los casos que encontraron un defecto o que dependen de algo que todavía no exis
 | :--- | :--- | :--- | :--- | :--- |
 | D-01 | Baja | `categoryEmoji` no ignora espacios ni mayúsculas y no tiene emoji para `Ingreso`. Una categoría escrita distinto se ve con el icono genérico. | `lib/widgets/category_picker_sheet.dart` | **Corregido** en S2-04 ([#140](https://github.com/JanettheMillan/KoPay/pull/140)). Verificado en la sección 8.4 ([#132](https://github.com/JanettheMillan/KoPay/issues/132)). |
 | D-02 | Baja | El plan (UT-03) espera un campo de tipo `legacy_income`, pero el modelo distingue los ingresos por la categoría `Ingreso` y el historial por `HistoryEntry.isIncome`. | `docs/plan-de-pruebas.md` o `lib/models/` | **Corregido en el plan** ([#133](https://github.com/JanettheMillan/KoPay/issues/133)): UT-03 y UT-43 describen el modelo real. Reejecución en la sección 8.6. |
-| D-03 | Media | `Movement.fromMap` e `Income.fromMap` aceptan fechas imposibles y las convierten en otra fecha sin avisar. Un dato corrupto o importado por CSV (HU-27) quedaría en otro mes. | `lib/models/movement_model.dart`, `lib/models/income_model.dart` | Validar que la fecha leída coincida con el texto, por ejemplo comparando año, mes y día después de `DateTime.parse`, y rechazar si no coincide. |
+| D-03 | Media | `Movement.fromMap` e `Income.fromMap` aceptan fechas imposibles y las convierten en otra fecha sin avisar. Un dato corrupto o importado por CSV (HU-27) quedaría en otro mes. | `lib/models/movement_model.dart`, `lib/models/income_model.dart` | **Corregido** en `fix/d-03-fechas-imposibles` ([#130](https://github.com/JanettheMillan/KoPay/issues/130)): `parseStoredDate` (`lib/utils/date_utils.dart`) rechaza mes, día u hora fuera de rango. Reejecución en la sección 8.7. |
 
 ### 8.2 Ejecución S1-17: pruebas de interfaz de formularios y navegación
 
@@ -1050,6 +1050,27 @@ Pruebas nuevas que no están en el plan, en `test/home_screen_test.dart`:
 | UT-03 · Ingreso representado como movimiento | **Aprobado** | Monto 500 positivo, descripción Nómina, fecha y categoría Ingreso; tipo `regular` y `isPayment` falso. |
 
 **Resumen:** UT-03 pasa de Fallido a Aprobado. D-02 queda cerrado. El resultado de 8.1 se conserva como registro de la primera ejecución.
+
+### 8.7 Reejecución de UT-33 tras corregir D-03
+
+| Campo | Valor |
+| :--- | :--- |
+| Tarjeta | D-03 · [#130](https://github.com/JanettheMillan/KoPay/issues/130) |
+| Fecha | 2026-11-26 |
+| Responsable | `EnriqueLanda2` |
+| Cambio | `Movement.fromMap`, `Income.fromMap` y `DebtModel.fromMap` leen la fecha con `parseStoredDate` (`lib/utils/date_utils.dart`). Primero valida el formato con `DateTime.parse`; después rechaza con `FormatException` un mes fuera de 1 a 12, un día que no existe en ese mes o una hora, minuto o segundo fuera de rango. La importación CSV ya validaba sus fechas con `BackupService.parseDate`. |
+| Archivo | `test/unit_models_formats_test.dart` (grupo 4.2 Fechas del mes) |
+| Comando | `flutter test test/unit_models_formats_test.dart --plain-name "UT-33"` |
+
+| Caso | Resultado | Observado |
+| :--- | :--- | :--- |
+| UT-33 · Texto que no es fecha | **Aprobado** | `abc` lanza `FormatException`. |
+| UT-33 · Día o mes fuera de rango | **Aprobado** | `2026-13-45`, `2026-02-30`, `2026-00-10` y `2026-04-31` lanzan `FormatException`. |
+| UT-33 · Hora fuera de rango | **Aprobado** | `2026-10-08T25:00:00.000` lanza `FormatException`. |
+| UT-33 · Ingreso y deuda | **Aprobado** | `Income.fromMap` y `DebtModel.fromMap` rechazan `2026-02-30`. |
+| UT-33 · Fechas válidas | **Aprobado** | Fecha con hora y milisegundos, 29 de febrero de 2028, 31 de diciembre y hora UTC con `Z` se leen igual que antes. |
+
+**Resumen:** UT-33 pasa de Fallido a Aprobado (6 de 6). La suite completa: 229 aprobadas, 3 omitidas, 0 fallidas. D-03 queda corregido; el resultado de 8.1 se conserva como registro de la primera ejecución.
 
 ## 9. Alineación con el Manual de Estilo
 

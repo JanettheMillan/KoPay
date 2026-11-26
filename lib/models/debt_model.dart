@@ -1,3 +1,5 @@
+import '../utils/date_utils.dart';
+
 /// Estado de una deuda. Se guarda en la base con su [name].
 enum DebtStatus {
   /// Le queda saldo por pagar.
@@ -66,7 +68,7 @@ class DebtModel {
       name: map['name'] as String,
       monthlyPayment: (map['monthly_payment'] as num).toDouble(),
       remainingBalance: (map['remaining_balance'] as num).toDouble(),
-      dueDate: DateTime.parse(map['due_date'] as String),
+      dueDate: parseStoredDate(map['due_date'] as String),
       status: DebtStatus.fromName(map['status'] as String?),
     );
   }

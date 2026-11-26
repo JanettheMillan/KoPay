@@ -1,3 +1,5 @@
+import '../utils/date_utils.dart';
+
 /// Tipo de movimiento. Se guarda en la base con su [name].
 enum MovementType {
   /// Gasto o entrada normal.
@@ -88,7 +90,7 @@ class Movement {
       amount: (map['amount'] as num).toDouble(),
       description: map['description'] as String,
       category: map['category'] as String,
-      date: DateTime.parse(map['date'] as String),
+      date: parseStoredDate(map['date'] as String),
       note: map['note'] as String?,
       type: MovementType.fromName(map['type'] as String?),
       cardId: map['card_id'] as int?,
