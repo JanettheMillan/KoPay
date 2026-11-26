@@ -246,7 +246,10 @@ class TwoOptionToggle extends StatelessWidget {
 class SaveButton extends StatelessWidget {
   final String label;
   final bool saving;
-  final VoidCallback onPressed;
+
+  /// `null` desactiva el botón sin mostrar el indicador (por ejemplo,
+  /// mientras dura la espera de un `429`, D-12).
+  final VoidCallback? onPressed;
 
   const SaveButton({
     super.key,

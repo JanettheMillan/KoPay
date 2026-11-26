@@ -233,6 +233,47 @@ void main() {
     expect(session.isSignedIn, isTrue);
   });
 
+  testWidgets('D-12 · HU-31 · después de un 429 el botón se desactiva '
+      '30 segundos y luego vuelve a funcionar', (tester) async {
+    await setUpApi(FakeAuthApi());
+    await open(tester);
+    const tooMany =
+        'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.';
+    bool enabled() => tester
+        .widget<ButtonStyleButton>(
+          find.descendant(
+            of: find.byKey(const Key('login-submit')),
+            matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+          ),
+        )
+        .enabled;
+
+    api.failNextWith(
+      const ApiException(429, ApiErrorCode.tooManyAttempts, tooMany),
+    );
+    await fill(tester, ana.email, ana.password);
+    await submit(tester);
+    expect(find.text(tooMany), findsOneWidget);
+    expect(enabled(), isFalse);
+
+    // Ni el botón ni el teclado envían mientras dura la espera.
+    await tester.tap(
+      find.byKey(const Key('login-submit')),
+      warnIfMissed: false,
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(session.isSignedIn, isFalse);
+
+    await tester.pump(loginRetryDelay - const Duration(seconds: 1));
+    expect(enabled(), isFalse);
+    await tester.pump(const Duration(seconds: 1));
+    expect(enabled(), isTrue);
+
+    await submit(tester);
+    expect(session.isSignedIn, isTrue);
+  });
+
   testWidgets('UI-LOG-06 · HU-31 · mientras envía bloquea el formulario y no '
       'envía dos veces', (tester) async {
     final pending = _PendingApi();
