@@ -375,6 +375,32 @@ void main() {
       expect(p.amount, 40);
       expect(p.isPaid, isTrue);
     });
+
+    test('PRX-06 · HU-18 · Un pago del primer día del periodo sí cuenta', () {
+      // El vencimiento anterior es el 30 de octubre: ese día ya no cuenta,
+      // pero el 31 de octubre es el primer día del periodo vigente.
+      final p = calcular(
+        cards: [tarjeta()],
+        movements: [pago(100, DateTime(2026, 10, 31), id: 5, cardId: 1)],
+      ).single;
+
+      expect(p.paidAmount, 100);
+      expect(p.isPaid, isTrue);
+      expect(p.paidMovementIds, [5]);
+    });
+
+    test('PRX-07 · HU-18 · Un sobrepago queda cubierto y se muestra lo '
+        'pagado', () {
+      final p = calcular(
+        cards: [tarjeta()],
+        movements: [pago(150, DateTime(2026, 11, 20), cardId: 1)],
+      ).single;
+
+      expect(p.amount, 100);
+      expect(p.paidAmount, 150);
+      expect(p.isPaid, isTrue);
+      expect(p.displayAmount, 150);
+    });
   });
 
   test('PRX-05 · HU-18 · Una tarjeta sin saldo no aparece y sin mínimo se '
