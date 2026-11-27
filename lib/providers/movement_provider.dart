@@ -51,6 +51,10 @@ class MovementProvider extends ChangeNotifier {
   String? _accountId;
   Future<void>? _syncing;
 
+  /// Lo que dispararon las llamadas a [bindSession]: limpiar la copia y
+  /// sincronizar.
+  Future<void> _binding = Future.value();
+
   /// Todos los movimientos, del más reciente al más antiguo.
   List<Movement> get movements => List.unmodifiable(_movements);
 
@@ -78,10 +82,25 @@ class MovementProvider extends ChangeNotifier {
     final previous = _accountId;
     _accountId = accountId;
     // Fuera del build del ProxyProvider: avisar aquí lanzaría un error.
+    final done = Completer<void>();
+    _binding = _binding.then((_) => done.future);
     scheduleMicrotask(() async {
-      if (previous != null) await _clearRemoteCopy();
-      if (accountId != null && _api != null) await sync();
+      try {
+        if (previous != null) await _clearRemoteCopy();
+        if (accountId != null && _api != null) await sync();
+      } finally {
+        done.complete();
+      }
     });
+  }
+
+  /// Espera a que terminen la limpieza y la sincronización que dispararon
+  /// las llamadas a [bindSession], y la sincronización en curso. Lo usan
+  /// las pruebas para no depender de una espera fija.
+  @visibleForTesting
+  Future<void> whenIdle() async {
+    await _binding;
+    await _syncing;
   }
 
   /// Lee los movimientos guardados y avisa a la interfaz. Con sesión,
@@ -119,8 +138,12 @@ class MovementProvider extends ChangeNotifier {
           created = await _authorized((t) => _api!.create(t, local));
         } on ApiException catch (e) {
           // 400: un movimiento viejo que no cumple las reglas de la API
-          // (por ejemplo, una descripción larga) se queda en el teléfono.
-          if (e.status == 400) continue;
+          // (por ejemplo, una descripción larga) se queda en el teléfono,
+          // marcado para borrarlo al cerrar sesión (S5-19).
+          if (e.status == 400) {
+            await _db.markMovementRejected(local.id!);
+            continue;
+          }
           rethrow;
         }
         await _db.setMovementRemote(
