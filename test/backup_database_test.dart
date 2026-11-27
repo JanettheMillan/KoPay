@@ -4,10 +4,14 @@
 
 import 'dart:io';
 
+import 'package:excel/excel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopay/database/database_helper.dart';
+import 'package:kopay/models/card_model.dart';
+import 'package:kopay/models/debt_model.dart';
 import 'package:kopay/models/income_model.dart';
 import 'package:kopay/models/movement_model.dart';
+import 'package:kopay/services/backup_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -87,5 +91,75 @@ void main() {
 
     expect((await db.getMovements()).map((m) => m.description), ['Viejo']);
     expect((await db.getIncomes()).map((i) => i.name), ['Viejo']);
+  });
+
+  test('RES-01 · RES-05 · HU-26 · los datos guardados exportan tarjetas, '
+      'deudas y pagos con su destino', () async {
+    final card = await db.insertCard(
+      const CardModel(
+        name: 'Oro',
+        bank: 'BBVA',
+        creditLimit: 30000,
+        usedBalance: 5000,
+        cutDay: 15,
+        paymentDay: 5,
+        minimumPayment: 900,
+      ),
+    );
+    final debt = await db.insertDebt(
+      DebtModel(
+        name: 'Préstamo auto',
+        monthlyPayment: 3200,
+        remainingBalance: 45000,
+        dueDate: DateTime(2026, 12, 10),
+      ),
+    );
+    await db.insertCardPayment(
+      cardId: card.id!,
+      amount: 1500,
+      date: DateTime(2026, 11, 5),
+    );
+    await db.insertDebtPayment(
+      debtId: debt.id!,
+      amount: 3200,
+      date: DateTime(2026, 11, 6),
+    );
+
+    final book = Excel.decodeBytes(
+      BackupService.buildXlsx(
+        await db.getMovements(),
+        await db.getIncomes(),
+        cards: await db.getCards(),
+        debts: await db.getDebts(),
+      ),
+    );
+    String text(CellValue? v) => v is TextCellValue ? v.value.text ?? '' : '$v';
+
+    final movementsSheet = book[BackupService.movementsSheet];
+    // Encabezado, dos pagos y el movimiento "Viejo" del setUp.
+    expect(movementsSheet.rows.length, 4);
+    final rows = movementsSheet.rows.skip(1).toList();
+    expect(rows.map((r) => text(r[5]?.value)), [
+      BackupService.paymentLabel,
+      BackupService.paymentLabel,
+      BackupService.expenseLabel,
+    ]);
+    expect(rows.map((r) => text(r[6]?.value)), ['Préstamo auto', 'Oro', '']);
+
+    expect(book[BackupService.cardsSheet].rows.length, 2);
+    expect(text(book[BackupService.cardsSheet].rows[1][0]?.value), 'Oro');
+    expect(book[BackupService.debtsSheet].rows.length, 2);
+    expect(
+      text(book[BackupService.debtsSheet].rows[1][4]?.value),
+      BackupService.pendingLabel,
+    );
+    // Los pagos no van a la hoja que se puede importar como CSV: quedan el
+    // encabezado, el movimiento "Viejo" y el ingreso del setUp.
+    final backupSheet = book[BackupService.backupSheet];
+    expect(backupSheet.rows.length, 3);
+    expect(backupSheet.rows.skip(1).map((r) => text(r[0]?.value)), [
+      BackupService.movementType,
+      BackupService.incomeType,
+    ]);
   });
 }
