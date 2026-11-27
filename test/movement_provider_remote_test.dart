@@ -435,6 +435,67 @@ void main() {
     );
   });
 
+  test('REM-16 · HU-34 · lo que la API rechazó se borra al cerrar sesión y '
+      'la siguiente cuenta no lo ve ni lo sube', () async {
+    await movements.add(gasto('x' * 61));
+
+    await entrar('ana@mail.com');
+    expect(movements.movements.single.description, 'x' * 61);
+
+    await salir();
+    expect(movements.movements, isEmpty);
+
+    await entrar('beto@mail.com');
+    expect(movements.movements, isEmpty);
+    expect(api.of('beto@mail.com'), isEmpty);
+  });
+
+  test('REM-17 · HU-36 · dos instalaciones con la misma cuenta ven los mismos '
+      'cambios, sin duplicados ni datos de otra cuenta', () async {
+    // Segunda instalación: otra base y otra sesión, misma API.
+    final db2 = DatabaseHelper.withFactory(
+      databaseFactoryFfi,
+      '${tempDir.path}/segunda.db',
+    );
+    final session2 = SessionProvider(api: auth, store: MemorySessionStore());
+    final movements2 = MovementProvider(database: db2, api: api);
+    addTearDown(() async {
+      movements2.dispose();
+      await db2.close();
+    });
+    await session2.restore();
+    await movements2.load();
+    api.byAccount['beto@mail.com'] = {
+      'b1': (remoteId: 'b1', version: 1, movement: gasto('De Beto')),
+    };
+
+    await entrar('ana@mail.com');
+    await session2.login(email: 'ana@mail.com', password: 'kopay2026');
+    movements2.bindSession(session2);
+    await settle();
+
+    // Alta en la primera; la segunda la ve una sola vez.
+    await movements.add(gasto('Café', amount: -45));
+    await movements2.sync();
+    await movements2.sync();
+    expect(movements2.movements.map((m) => m.description), ['Café']);
+
+    // Edición en la segunda; la primera la ve.
+    await movements2.update(
+      movements2.movements.single.copyWith(amount: -55, description: 'Café 2'),
+    );
+    await movements.sync();
+    expect(movements.movements.single.description, 'Café 2');
+    expect(movements.movements.single.amount, -55);
+
+    // Borrado en la primera; la segunda ya no lo ve.
+    await movements.delete(movements.movements.single.id!);
+    await movements2.sync();
+    expect(movements2.movements, isEmpty);
+    expect(movements.movements, isEmpty);
+    expect(api.of('beto@mail.com'), hasLength(1));
+  });
+
   test('REM-14 · HU-01 · una base versión 4 se migra a la actual sin perder '
       'movimientos y todos quedan como solo del teléfono', () async {
     // Base como la dejó S2-09 (versión 4), con un gasto.

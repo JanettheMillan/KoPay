@@ -21,8 +21,9 @@ import 'session_provider.dart';
 /// - Al iniciar sesión sube los ingresos que solo existían en el teléfono
 ///   y después reemplaza la copia por los de la cuenta, así Inicio no los
 ///   cuenta dos veces.
-/// - Al cerrar sesión o cambiar de cuenta borra la copia de la anterior
-///   (HU-34).
+/// - Al cerrar sesión o cambiar de cuenta borra los ingresos de la
+///   anterior, incluidos los que la API rechazó al subirlos (HU-34,
+///   S5-19).
 /// - Sin red, la lista sigue mostrando la copia ([offline]) y guardar
 ///   lanza [NetworkException]. La cola sin red y los conflictos entre
 ///   dispositivos son de la sincronización (S5-19, #105).
@@ -235,7 +236,7 @@ class IncomeProvider extends ChangeNotifier {
       _session!.authorized(call);
 
   Future<void> _clearRemoteCopy() async {
-    await _db.clearRemoteIncomes();
+    await _db.clearAccountIncomes();
     _offline = false;
     await _reload();
   }
