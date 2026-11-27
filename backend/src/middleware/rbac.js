@@ -53,9 +53,14 @@ const MESSAGES = Object.freeze({
 /** Métodos que no modifican datos. */
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-/** Indica si [role] tiene [permission]. */
+/**
+ * Indica si [role] tiene [permission]. Un rol desconocido responde
+ * `false`, incluso si coincide con un nombre heredado de `Object`, como
+ * `'constructor'` o `'__proto__'` (D-07).
+ */
 function can(role, permission) {
-  return (ROLE_PERMISSIONS[role] ?? []).includes(permission);
+  if (typeof role !== 'string' || !Object.hasOwn(ROLE_PERMISSIONS, role)) return false;
+  return ROLE_PERMISSIONS[role].includes(permission);
 }
 
 /**
