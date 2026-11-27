@@ -20,8 +20,9 @@ import 'session_provider.dart';
 /// red:
 /// - Al iniciar sesión sube los movimientos que solo existían en el
 ///   teléfono, para no perderlos, y después trae los de la cuenta.
-/// - Al cerrar sesión o cambiar de cuenta borra la copia de la cuenta
-///   anterior, para que otra persona en el mismo teléfono no la vea.
+/// - Al cerrar sesión o cambiar de cuenta borra los movimientos de la
+///   cuenta anterior (la copia y los que la API rechazó al subirlos), para
+///   que otra persona en el mismo teléfono no los vea (S5-19).
 /// - Sin red, la lista sigue mostrando la copia ([offline]) y guardar
 ///   lanza [NetworkException]. La cola sin red y los conflictos entre
 ///   dispositivos son de la sincronización (S5-19, #105).
@@ -238,7 +239,7 @@ class MovementProvider extends ChangeNotifier {
       _session!.authorized(call);
 
   Future<void> _clearRemoteCopy() async {
-    await _db.clearRemoteMovements();
+    await _db.clearAccountMovements();
     _offline = false;
     await _reload();
   }

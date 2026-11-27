@@ -430,6 +430,61 @@ void main() {
     expect(incomes.incomes.map((i) => i.name), isNot(contains('Uno')));
   });
 
+  test('RIN-15 · HU-34 · lo que la API rechazó se borra al cerrar sesión y '
+      'la siguiente cuenta no lo ve ni lo sube', () async {
+    await incomes.add(ingreso('x' * 61));
+
+    await entrar('ana@mail.com');
+    expect(incomes.incomes.single.name, 'x' * 61);
+
+    await salir();
+    expect(incomes.incomes, isEmpty);
+
+    await entrar('beto@mail.com');
+    expect(incomes.incomes, isEmpty);
+    expect(api.of('beto@mail.com'), isEmpty);
+  });
+
+  test('RIN-16 · HU-36 · dos instalaciones con la misma cuenta ven los mismos '
+      'ingresos y el mismo total del mes, sin duplicados', () async {
+    final db2 = DatabaseHelper.withFactory(
+      databaseFactoryFfi,
+      '${tempDir.path}/segunda.db',
+    );
+    final session2 = SessionProvider(api: auth, store: MemorySessionStore());
+    final incomes2 = IncomeProvider(database: db2, api: api);
+    addTearDown(() async {
+      incomes2.dispose();
+      await db2.close();
+    });
+    await session2.restore();
+    await incomes2.load();
+    api.byAccount['beto@mail.com'] = {
+      'b1': (remoteId: 'b1', version: 1, income: ingreso('De Beto')),
+    };
+
+    await entrar('ana@mail.com');
+    await session2.login(email: 'ana@mail.com', password: 'kopay2026');
+    incomes2.bindSession(session2);
+    await settle();
+
+    await incomes.add(ingreso('Nómina', amount: 12500));
+    await incomes2.sync();
+    await incomes2.sync();
+    expect(incomes2.incomes.map((i) => i.name), ['Nómina']);
+    expect(incomes2.totalForMonth(noviembre), 12500);
+
+    await incomes2.update(incomes2.incomes.single.copyWith(amount: 13000));
+    await incomes.sync();
+    expect(incomes.totalForMonth(noviembre), 13000);
+
+    await incomes.delete(incomes.incomes.single.id!);
+    await incomes2.sync();
+    expect(incomes2.incomes, isEmpty);
+    expect(incomes2.totalForMonth(noviembre), 0);
+    expect(api.of('beto@mail.com'), hasLength(1));
+  });
+
   test('RIN-13 · HU-09 · una base versión 5 se migra a la 6 sin perder '
       'ingresos y todos quedan como solo del teléfono', () async {
     // Base como la dejó S5-07 (versión 5), con un ingreso.

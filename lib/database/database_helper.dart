@@ -364,12 +364,17 @@ class DatabaseHelper {
     });
   }
 
-  /// Borra la copia local de los movimientos de la API (al cerrar sesión
-  /// o cambiar de cuenta), para que otra cuenta en el mismo teléfono no
-  /// los vea. Los que existen solo en el teléfono y los pagos se quedan.
-  Future<void> clearRemoteMovements() async {
+  /// Borra los movimientos de la cuenta que cierra sesión o cambia (HU-34),
+  /// para que otra cuenta en el mismo teléfono no los vea: la copia de la
+  /// API y también los normales que se quedaron solo en el teléfono porque
+  /// la API los rechazó al subirlos (S5-19, #105). Los pagos se quedan:
+  /// se manejan desde su tarjeta o deuda (S5-10, S5-11).
+  Future<void> clearAccountMovements() async {
     final db = await database;
-    await db.transaction(_deleteRemoteMovements);
+    await db.transaction((txn) async {
+      await _deleteRemoteMovements(txn);
+      await txn.delete(movementsTable, where: "type = 'regular'");
+    });
   }
 
   static Future<void> _deleteRemoteMovements(Transaction txn) async {
@@ -513,12 +518,15 @@ class DatabaseHelper {
     });
   }
 
-  /// Borra la copia local de los ingresos de la API (al cerrar sesión o
-  /// cambiar de cuenta), para que otra cuenta en el mismo teléfono no los
-  /// vea. Los que existen solo en el teléfono se quedan.
-  Future<void> clearRemoteIncomes() async {
+  /// Borra los ingresos de la cuenta que cierra sesión o cambia (HU-34):
+  /// la copia de la API y también los que se quedaron solo en el teléfono
+  /// porque la API los rechazó al subirlos (S5-19, #105).
+  Future<void> clearAccountIncomes() async {
     final db = await database;
-    await db.transaction(_deleteRemoteIncomes);
+    await db.transaction((txn) async {
+      await _deleteRemoteIncomes(txn);
+      await txn.delete(incomesTable);
+    });
   }
 
   static Future<void> _deleteRemoteIncomes(Transaction txn) async {
