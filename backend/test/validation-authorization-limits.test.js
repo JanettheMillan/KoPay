@@ -137,15 +137,11 @@ describe('Autorización por rol', () => {
     }
   });
 
-  // Defecto conocido D-07 (#183): `can` busca el rol en un objeto normal,
-  // así que un nombre heredado lanza TypeError en lugar de devolver false.
-  // La base solo admite 'user' y 'accountant' (migración 001).
-  // `test.failing` deja constancia; cuando se corrija, Jest avisará y se
-  // cambia a `test`.
-  test.failing.each(['constructor', 'toString', '__proto__', 'hasOwnProperty'])(
+  // D-07 (#183): antes, un nombre heredado de Object lanzaba TypeError.
+  test.each(['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf'])(
     'AUT-03 · HU-34 · el nombre heredado %p tampoco tiene permisos',
     (role) => {
-      expect(can(role, PERMISSIONS.OWN_FINANCES)).toBe(false);
+      expect(todos.map((permission) => can(role, permission))).toEqual(todos.map(() => false));
     },
   );
 });
