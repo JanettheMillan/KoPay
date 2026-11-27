@@ -125,23 +125,25 @@ void main() {
   Income ingreso(String name, {double amount = 1000, int dia = 15}) =>
       Income(name: name, amount: amount, date: DateTime(2026, 11, dia));
 
-  /// Espera a que termine lo que dispara bindSession (microtareas y SQLite).
+  /// Espera a que termine lo que dispara bindSession (limpieza y
+  /// sincronización), sin depender de una espera fija.
   Future<void> settle() async {
-    for (var i = 0; i < 5; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-    }
+    await Future<void>.delayed(Duration.zero);
+    await incomes.whenIdle();
   }
 
-  Future<void> entrar(String email) async {
+  /// Inicia sesión. Con [wait] en `false` no espera la sincronización (por
+  /// ejemplo, si la API está detenida a propósito).
+  Future<void> entrar(String email, {bool wait = true}) async {
     await session.login(email: email, password: 'kopay2026');
     incomes.bindSession(session);
-    await settle();
+    if (wait) await settle();
   }
 
-  Future<void> salir() async {
+  Future<void> salir({bool wait = true}) async {
     await session.logout();
     incomes.bindSession(session);
-    await settle();
+    if (wait) await settle();
   }
 
   setUp(() async {
@@ -414,9 +416,12 @@ void main() {
     api.holdCreate = Completer<void>();
 
     // Ana entra y la subida de "Uno" se queda esperando.
-    await entrar('ana@mail.com');
+    await entrar('ana@mail.com', wait: false);
+    while (api.calls == 0) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
     // Cambia a Beto antes de que termine.
-    await salir();
+    await salir(wait: false);
     await session.login(email: 'beto@mail.com', password: 'kopay2026');
     incomes.bindSession(session);
     api.holdCreate!.complete();
@@ -443,6 +448,23 @@ void main() {
     await entrar('beto@mail.com');
     expect(incomes.incomes, isEmpty);
     expect(api.of('beto@mail.com'), isEmpty);
+  });
+
+  test('RIN-17 · HU-34 · lo que no se subió porque el servidor falló (503) no '
+      'se borra al cerrar sesión', () async {
+    await incomes.add(ingreso('Antes de entrar'));
+    api.failWith = const ApiException(
+      503,
+      'UNAVAILABLE',
+      'El servicio no está disponible',
+    );
+
+    await entrar('ana@mail.com');
+    expect(incomes.offline, isTrue);
+    await salir();
+
+    expect(incomes.incomes.map((i) => i.name), ['Antes de entrar']);
+    expect(await db.getLocalOnlyIncomes(), hasLength(1));
   });
 
   test('RIN-16 · HU-36 · dos instalaciones con la misma cuenta ven los mismos '
@@ -513,7 +535,7 @@ void main() {
     db = DatabaseHelper.withFactory(databaseFactoryFfi, path);
     final base = await db.database;
 
-    expect(await base.getVersion(), 6);
+    expect(await base.getVersion(), DatabaseHelper.version);
     expect((await db.getIncomes()).single.name, 'Nómina');
     expect((await db.getLocalOnlyIncomes()).single.name, 'Nómina');
   });

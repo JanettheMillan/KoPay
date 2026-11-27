@@ -49,6 +49,10 @@ class IncomeProvider extends ChangeNotifier {
   String? _accountId;
   Future<void>? _syncing;
 
+  /// Lo que dispararon las llamadas a [bindSession]: limpiar la copia y
+  /// sincronizar.
+  Future<void> _binding = Future.value();
+
   /// Todos los ingresos, del más reciente al más antiguo.
   List<Income> get incomes => List.unmodifiable(_incomes);
 
@@ -76,10 +80,25 @@ class IncomeProvider extends ChangeNotifier {
     final previous = _accountId;
     _accountId = accountId;
     // Fuera del build del ProxyProvider: avisar aquí lanzaría un error.
+    final done = Completer<void>();
+    _binding = _binding.then((_) => done.future);
     scheduleMicrotask(() async {
-      if (previous != null) await _clearRemoteCopy();
-      if (accountId != null && _api != null) await sync();
+      try {
+        if (previous != null) await _clearRemoteCopy();
+        if (accountId != null && _api != null) await sync();
+      } finally {
+        done.complete();
+      }
     });
+  }
+
+  /// Espera a que terminen la limpieza y la sincronización que dispararon
+  /// las llamadas a [bindSession], y la sincronización en curso. Lo usan
+  /// las pruebas para no depender de una espera fija.
+  @visibleForTesting
+  Future<void> whenIdle() async {
+    await _binding;
+    await _syncing;
   }
 
   /// Lee los ingresos guardados y avisa a la interfaz. Con sesión, además
@@ -119,7 +138,11 @@ class IncomeProvider extends ChangeNotifier {
           // 400: un ingreso viejo que no cumple las reglas de la API (por
           // ejemplo, un nombre de más de 60 caracteres) se queda en el
           // teléfono.
-          if (e.status == 400) continue;
+          if (e.status == 400) {
+            // Marcado para borrarlo al cerrar sesión (S5-19).
+            await _db.markIncomeRejected(local.id!);
+            continue;
+          }
           rethrow;
         }
         await _db.setIncomeRemote(

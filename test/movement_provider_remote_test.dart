@@ -137,23 +137,25 @@ void main() {
         date: DateTime(2026, 11, dia),
       );
 
-  /// Espera a que termine lo que dispara bindSession (microtareas y SQLite).
+  /// Espera a que termine lo que dispara bindSession (limpieza y
+  /// sincronización), sin depender de una espera fija.
   Future<void> settle() async {
-    for (var i = 0; i < 5; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-    }
+    await Future<void>.delayed(Duration.zero);
+    await movements.whenIdle();
   }
 
-  Future<void> entrar(String email) async {
+  /// Inicia sesión. Con [wait] en `false` no espera la sincronización (por
+  /// ejemplo, si la API está detenida a propósito).
+  Future<void> entrar(String email, {bool wait = true}) async {
     await session.login(email: email, password: 'kopay2026');
     movements.bindSession(session);
-    await settle();
+    if (wait) await settle();
   }
 
-  Future<void> salir() async {
+  Future<void> salir({bool wait = true}) async {
     await session.logout();
     movements.bindSession(session);
-    await settle();
+    if (wait) await settle();
   }
 
   setUp(() async {
@@ -414,9 +416,12 @@ void main() {
     api.holdCreate = Completer<void>();
 
     // Ana entra y la subida de "Uno" se queda esperando.
-    await entrar('ana@mail.com');
+    await entrar('ana@mail.com', wait: false);
+    while (api.calls == 0) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
     // Cambia a Beto antes de que termine.
-    await salir();
+    await salir(wait: false);
     await session.login(email: 'beto@mail.com', password: 'kopay2026');
     movements.bindSession(session);
     api.holdCreate!.complete();
@@ -448,6 +453,25 @@ void main() {
     await entrar('beto@mail.com');
     expect(movements.movements, isEmpty);
     expect(api.of('beto@mail.com'), isEmpty);
+  });
+
+  test('REM-18 · HU-34 · lo que no se subió por falta de red no se borra al '
+      'cerrar sesión; se sube al volver a entrar', () async {
+    await movements.add(gasto('Antes de entrar'));
+    api.failWith = const NetworkException();
+
+    await entrar('ana@mail.com');
+    expect(movements.offline, isTrue);
+    await salir();
+    expect(movements.movements.map((m) => m.description), ['Antes de entrar']);
+
+    api.failWith = null;
+    await entrar('ana@mail.com');
+    expect(
+      api.of('ana@mail.com').values.single.movement.description,
+      'Antes de entrar',
+    );
+    expect(await db.getLocalOnlyMovements(), isEmpty);
   });
 
   test('REM-17 · HU-36 · dos instalaciones con la misma cuenta ven los mismos '

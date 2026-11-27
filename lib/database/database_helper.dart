@@ -23,7 +23,8 @@ class DatabaseHelper {
   /// 4: pagos asociados a tarjetas y deudas en `movements` (S2-09).
   /// 5: relación con los movimientos de la API (S5-07).
   /// 6: relación con los ingresos de la API (S5-08).
-  static const int version = 6;
+  /// 7: registros que la API rechazó al subirlos (S5-19).
+  static const int version = 7;
 
   static const String movementsTable = 'movements';
   static const String incomesTable = 'incomes';
@@ -36,6 +37,9 @@ class DatabaseHelper {
 
   /// Qué ingreso local corresponde a cuál de la API (S5-08).
   static const String incomeRemoteTable = 'income_remote';
+
+  /// Movimientos e ingresos locales que la API rechazó al subirlos (S5-19).
+  static const String uploadRejectedTable = 'upload_rejected';
 
   /// Categoría con la que se guardan los pagos de tarjeta y de deuda.
   static const String paymentCategory = 'Pago';
@@ -138,6 +142,7 @@ class DatabaseHelper {
     _createDebtsTable(batch);
     _createMovementRemoteTable(batch);
     _createIncomeRemoteTable(batch);
+    _createUploadRejectedTable(batch);
 
     await batch.commit(noResult: true);
   }
@@ -150,6 +155,7 @@ class DatabaseHelper {
     if (oldVersion < 4) _addPaymentColumns(batch);
     if (oldVersion < 5) _createMovementRemoteTable(batch);
     if (oldVersion < 6) _createIncomeRemoteTable(batch);
+    if (oldVersion < 7) _createUploadRejectedTable(batch);
     await batch.commit(noResult: true);
   }
 
@@ -176,6 +182,20 @@ class DatabaseHelper {
         income_id INTEGER PRIMARY KEY,
         remote_id TEXT NOT NULL UNIQUE,
         version INTEGER NOT NULL CHECK (version > 0)
+      )
+    ''');
+  }
+
+  /// Registros locales que la API rechazó con `400` al subirlos (S5-19):
+  /// `kind` es `movement` o `income`. Al cerrar sesión se borran solo
+  /// estos y la copia de la API; lo que no se subió por falta de red o
+  /// por un error del servidor se queda en el teléfono.
+  static void _createUploadRejectedTable(Batch batch) {
+    batch.execute('''
+      CREATE TABLE $uploadRejectedTable (
+        kind TEXT NOT NULL CHECK (kind IN ('movement', 'income')),
+        local_id INTEGER NOT NULL,
+        PRIMARY KEY (kind, local_id)
       )
     ''');
   }
@@ -290,6 +310,7 @@ class DatabaseHelper {
         where: 'movement_id = ?',
         whereArgs: [id],
       );
+      await _unmarkRejected(txn, _movementKind, id);
       return txn.delete(movementsTable, where: 'id = ?', whereArgs: [id]);
     });
   }
@@ -366,16 +387,20 @@ class DatabaseHelper {
 
   /// Borra los movimientos de la cuenta que cierra sesión o cambia (HU-34),
   /// para que otra cuenta en el mismo teléfono no los vea: la copia de la
-  /// API y también los normales que se quedaron solo en el teléfono porque
-  /// la API los rechazó al subirlos (S5-19, #105). Los pagos se quedan:
-  /// se manejan desde su tarjeta o deuda (S5-10, S5-11).
+  /// API y los que la API rechazó con `400` al subirlos (S5-19, #105). Lo
+  /// que no se subió por falta de red o por un error del servidor se queda
+  /// para subirlo después. Los pagos se quedan: se manejan desde su tarjeta
+  /// o deuda (S5-10, S5-11).
   Future<void> clearAccountMovements() async {
     final db = await database;
     await db.transaction((txn) async {
       await _deleteRemoteMovements(txn);
-      await txn.delete(movementsTable, where: "type = 'regular'");
+      await _deleteRejected(txn, _movementKind, movementsTable);
     });
   }
+
+  /// Marca el movimiento local [id] como rechazado por la API (`400`).
+  Future<void> markMovementRejected(int id) => _markRejected(_movementKind, id);
 
   static Future<void> _deleteRemoteMovements(Transaction txn) async {
     await txn.rawDelete('''
@@ -444,6 +469,7 @@ class DatabaseHelper {
         where: 'income_id = ?',
         whereArgs: [id],
       );
+      await _unmarkRejected(txn, _incomeKind, id);
       return txn.delete(incomesTable, where: 'id = ?', whereArgs: [id]);
     });
   }
@@ -519,14 +545,53 @@ class DatabaseHelper {
   }
 
   /// Borra los ingresos de la cuenta que cierra sesión o cambia (HU-34):
-  /// la copia de la API y también los que se quedaron solo en el teléfono
-  /// porque la API los rechazó al subirlos (S5-19, #105).
+  /// la copia de la API y los que la API rechazó con `400` al subirlos
+  /// (S5-19, #105). Lo que no se subió por falta de red o por un error del
+  /// servidor se queda para subirlo después.
   Future<void> clearAccountIncomes() async {
     final db = await database;
     await db.transaction((txn) async {
       await _deleteRemoteIncomes(txn);
-      await txn.delete(incomesTable);
+      await _deleteRejected(txn, _incomeKind, incomesTable);
     });
+  }
+
+  /// Marca el ingreso local [id] como rechazado por la API (`400`).
+  Future<void> markIncomeRejected(int id) => _markRejected(_incomeKind, id);
+
+  // ── Registros rechazados por la API (S5-19) ──────────────────
+
+  static const String _movementKind = 'movement';
+  static const String _incomeKind = 'income';
+
+  Future<void> _markRejected(String kind, int id) async {
+    final db = await database;
+    await db.insert(uploadRejectedTable, {
+      'kind': kind,
+      'local_id': id,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  static Future<int> _unmarkRejected(Transaction txn, String kind, int id) =>
+      txn.delete(
+        uploadRejectedTable,
+        where: 'kind = ? AND local_id = ?',
+        whereArgs: [kind, id],
+      );
+
+  /// Borra de [table] los registros marcados como rechazados de [kind] y
+  /// sus marcas.
+  static Future<void> _deleteRejected(
+    Transaction txn,
+    String kind,
+    String table,
+  ) async {
+    await txn.rawDelete(
+      'DELETE FROM $table WHERE id IN '
+      '(SELECT local_id FROM $uploadRejectedTable WHERE kind = ?)',
+      [kind],
+    );
+    await txn.delete(uploadRejectedTable, where: 'kind = ?', whereArgs: [kind]);
   }
 
   static Future<void> _deleteRemoteIncomes(Transaction txn) async {
@@ -962,6 +1027,7 @@ class DatabaseHelper {
     debtsTable,
     movementRemoteTable,
     incomeRemoteTable,
+    uploadRejectedTable,
   ];
 
   /// Borra todos los registros de [financialTables] en una sola

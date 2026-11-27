@@ -31,7 +31,7 @@ void main() {
   }
 
   test('crea las tablas movements, incomes, cards, debts, settings, '
-      'movement_remote e income_remote', () async {
+      'movement_remote, income_remote y upload_rejected', () async {
     final db = await helper.database;
     final tables = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type = 'table' "
@@ -40,7 +40,8 @@ void main() {
     expect(
       tables.map((t) => t['name']).toSet(),
       // movement_remote e income_remote: relación con los movimientos
-      // (S5-07) y los ingresos (S5-08) de la API.
+      // (S5-07) y los ingresos (S5-08) de la API; upload_rejected: los
+      // que la API rechazó al subirlos (S5-19).
       {
         'movements',
         'incomes',
@@ -49,6 +50,7 @@ void main() {
         'settings',
         'movement_remote',
         'income_remote',
+        'upload_rejected',
       },
     );
     expect(await db.getVersion(), DatabaseHelper.version);
