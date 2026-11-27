@@ -1,4 +1,4 @@
-package com.example.kopay
+package com.kodisof.kopay
 
 import io.flutter.embedding.android.FlutterActivity
 
